@@ -1,0 +1,48 @@
+{
+  "name": "vibe-coder-mcp",
+  "version": "1.0.0",
+  "description": "Task manager and workflow agent MCP server for AI-assisted development",
+  "main": "build/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node build/index.js",
+    "start:sse": "node build/index.js --sse",
+    "dev": "tsc -w & nodemon build/index.js",
+    "dev:sse": "tsc -w & nodemon build/index.js --sse",
+    "lint": "eslint src/**/*.ts",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postinstall": "npm i --save-dev @types/node @types/express @types/cors @types/fs-extra"
+  },
+  "keywords": [
+    "MCP",
+    "AI",
+    "workflow",
+    "Claude",
+    "task-manager",
+    "project-management"
+  ],
+  "author": "Vibe Coder MCP Team",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.2.5",
+    "axios": "^1.6.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "fs-extra": "^11.2.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^20.11.16",
+    "eslint": "^8.56.0",
+    "nodemon": "^3.0.3",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

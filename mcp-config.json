@@ -1,0 +1,39 @@
+{
+  "tools": {
+    "fullstack-starter-kit-generator": {
+      "description": "Generates full-stack project starter kits with custom tech stacks",
+      "use_cases": ["project scaffolding", "tech stack setup", "application boilerplate"],
+      "input_patterns": ["create starter kit for {use_case}", "generate {type} project", "scaffold {application_type} app", "setup boilerplate for {project}"]
+    },
+    "research-manager": {
+      "description": "Performs in-depth research on technical topics using Perplexity Sonar",
+      "use_cases": ["research", "comparison", "best practices"],
+      "input_patterns": ["research {topic}", "compare {A} and {B}", "best practices for {domain}"]
+    },
+    "prd-generator": {
+      "description": "Creates comprehensive Product Requirements Documents",
+      "use_cases": ["product requirements", "feature documentation"],
+      "input_patterns": ["create prd for {product}", "document requirements for {feature}"]
+    },
+    "user-stories-generator": {
+      "description": "Generates user stories with acceptance criteria",
+      "use_cases": ["user stories", "workflow definition"],
+      "input_patterns": ["create stories for {feature}", "define workflow for {process}"]
+    },
+    "task-list-generator": {
+      "description": "Produces development task lists with dependencies",
+      "use_cases": ["task breakdown", "sprint planning"],
+      "input_patterns": ["plan tasks for {feature}", "break down {requirement}"]
+    },
+    "rules-generator": {
+      "description": "Creates project-specific development rules",
+      "use_cases": ["coding standards", "project guidelines"],
+      "input_patterns": ["setup rules for {project}", "define standards for {language}"]
+    },
+    "workflow-manager": {
+      "description": "Tracks project progress and task states",
+      "use_cases": ["status updates", "progress tracking"],
+      "input_patterns": ["update {task} to {status}", "report progress on {feature}"]
+    }
+  }
+}
