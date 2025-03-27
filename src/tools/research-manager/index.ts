@@ -1,8 +1,9 @@
 import fs from 'fs-extra';
 import path from 'path';
-import axios from 'axios';
 import { OpenRouterConfig } from '../../types/workflow.js';
+import { performResearchQuery } from '../../utils/researchHelper.js';
 import { processWithSequentialThinking } from '../sequential-thinking.js';
+import logger from '../../logger.js';
 
 // Ensure directories exist
 const RESEARCH_DIR = path.join(process.cwd(), 'workflow-agent-files', 'research-manager');
@@ -57,10 +58,10 @@ export async function performResearch(
     const filePath = path.join(RESEARCH_DIR, filename);
     
     // Process the research request
-    console.error(`Performing research on: ${query.substring(0, 50)}...`);
+    logger.info(`Performing research on: ${query.substring(0, 50)}...`);
     
-    // Use Perplexity model for research
-    const researchResult = await performPerplexityResearch(query, config);
+    // Use Perplexity model for research via centralized helper
+    const researchResult = await performResearchQuery(query, config);
     
     // Process with sequential thinking to enhance the research
     const enhancedResearch = await processWithSequentialThinking(
@@ -84,7 +85,7 @@ export async function performResearch(
       ]
     };
   } catch (error) {
-    console.error('Research Manager Error:', error);
+    logger.error({ err: error }, 'Research Manager Error');
     return {
       content: [
         {
@@ -93,50 +94,5 @@ export async function performResearch(
         }
       ]
     };
-  }
-}
-
-/**
- * Use Perplexity Sonar via OpenRouter for initial research
- */
-async function performPerplexityResearch(query: string, config: OpenRouterConfig): Promise<string> {
-  try {
-    const response = await axios.post(
-      `${config.baseUrl}/chat/completions`,
-      {
-        model: config.perplexityModel,
-        messages: [
-          {
-            role: "system",
-            content: "You are a sophisticated AI research assistant that provides comprehensive, accurate, and up-to-date information. Your task is to thoroughly research the provided query, exploring multiple angles, facts, and perspectives. Cite sources when appropriate and structure your response logically."
-          },
-          {
-            role: "user",
-            content: `I need comprehensive research on: ${query}`
-          }
-        ],
-        max_tokens: 4000,
-        temperature: 0.1
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${config.apiKey}`,
-          "HTTP-Referer": "https://vibe-coder-mcp.local"
-        }
-      }
-    );
-
-    if (response.data.choices && response.data.choices.length > 0) {
-      return response.data.choices[0].message.content;
-    } else {
-      throw new Error("No response received from Perplexity");
-    }
-  } catch (error) {
-    console.error("Perplexity API Error:", error);
-    if (axios.isAxiosError(error)) {
-      throw new Error(`Perplexity API error: ${error.response?.status} - ${JSON.stringify(error.response?.data || {})}`);
-    }
-    throw new Error(`Unknown error: ${String(error)}`);
   }
 }
