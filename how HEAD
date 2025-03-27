@@ -1,0 +1,47 @@
+[33mcommit 737e164bf1b25b1aad755a17b274e4ba8eecf9c0[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m
+Author: FreshTechBro <oladotun.olatunji@gmail.com>
+Date:   Thu Mar 27 01:13:36 2025 -0500
+
+    docs: Update README with section on tool documentation
+
+[33mcommit b9df867dac7b6b9385885a3c4101193551ef17a4[m
+Author: FreshTechBro <oladotun.olatunji@gmail.com>
+Date:   Thu Mar 27 01:08:48 2025 -0500
+
+    feat(tools): Update model configuration and add comprehensive tool documentation
+    
+    ## Model Configuration Updates
+    - Change generation model to `google/gemini-2.0-flash-001` for faster content generation
+      - Update default model in setup.bat and setup.sh environment templates
+      - Update default model in src/server.ts configuration
+      - Verify correct usage in sequential-thinking.ts
+    - Maintain `perplexity/sonar-deep-research` for deep research operations
+      - Verify model specification in src/utils/researchHelper.ts
+      - Confirm all research operations use this specialized model
+    
+    ## Documentation Improvements
+    - Add detailed README.md files to all tool directories:
+      - research-manager
+      - prd-generator
+      - rules-generator
+      - user-stories-generator
+      - task-list-generator
+      - fullstack-starter-kit-generator
+    - Standardize documentation format with consistent sections:
+      - Tool overview and purpose
+      - Input/output specifications with parameter details
+      - Step-by-step workflow documentation
+      - Mermaid diagrams visualizing the processing flow
+      - Real-world usage examples
+      - System prompt snippets
+      - Error handling descriptions
+    
+    ## Memory Bank Updates
+    - Add model configuration changes to activeContext.md
+    - Update progress.md with documentation work completed
+    
+    This commit improves the codebase by:
+    1. Optimizing model selection for different tasks (faster model for generation, specialized model for research)
+    2. Providing comprehensive documentation for all tools
+    3. Visualizing workflows with Mermaid diagrams for better understanding
+    4. Maintaining accurate project status in memory bank files
