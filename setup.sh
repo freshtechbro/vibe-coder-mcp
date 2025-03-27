@@ -37,7 +37,6 @@ GEMINI_MODEL=google/gemini-2.0-flash-001
 PERPLEXITY_MODEL=perplexity/sonar-deep-research
 
 # Server Configuration
-PORT=3000
 EOF
     echo "Please edit .env file to add your OpenRouter API key."
 fi

@@ -38,7 +38,6 @@ if not exist .env (
         echo PERPLEXITY_MODEL=perplexity/sonar-deep-research
         echo.
         echo # Server Configuration
-        echo PORT=3000
     ) > .env
     echo Please edit .env file to add your OpenRouter API key.
 )

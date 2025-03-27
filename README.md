@@ -1,160 +1,255 @@
 # Vibe Coder MCP Server
 
-An MCP server that provides stateless tools and generators for AI-assisted development. This server enhances AI-powered development environments with tools for research, planning, and requirements generation.
+Welcome! Vibe Coder is an MCP (Model Context Protocol) server designed to supercharge your AI assistant (like Cursor, Cline AI, or Claude Desktop) with powerful tools for software development. It helps with research, planning, generating requirements, creating starter projects, and more!
 
-## Overview
+## Overview & Features
 
-Vibe Coder MCP integrates with Claude Desktop and other MCP-compatible clients to provide the following capabilities:
+Vibe Coder MCP integrates with MCP-compatible clients to provide the following capabilities:
 
-- **Sequential Thinking**: Processes problems through a flexible, step-by-step thinking approach
-- **Request Processor**: Routes and manages requests to appropriate specialized tools
-- **Research Manager**: Deep research capabilities using Perplexity Sonar
-- **Rules Generator**: Creates development rules tailored to specific projects
-- **PRD Generator**: Produces detailed product requirements documents
-- **User Stories Generator**: Creates structured user stories with acceptance criteria
-- **Task List Generator**: Develops detailed development task lists with dependencies
-- **Fullstack Starter Kit Generator**: Creates custom project starter kits with tailored tech stacks
+*   **Sequential Thinking**: Processes problems through a flexible, step-by-step thinking approach.
+*   **Request Processor**: Routes and manages requests to appropriate specialized tools.
+*   **Research Manager**: Performs deep research using Perplexity Sonar.
+*   **Rules Generator**: Creates development rules tailored to specific projects.
+*   **PRD Generator**: Produces detailed product requirements documents.
+*   **User Stories Generator**: Creates structured user stories with acceptance criteria.
+*   **Task List Generator**: Develops detailed development task lists with dependencies.
+*   **Fullstack Starter Kit Generator**: Creates custom project starter kits with tailored tech stacks.
 
-## Requirements
+*(See "Detailed Tool Documentation" and "Feature Details" sections below for more)*
 
-- Node.js 16 or higher
-- npm
-- OpenRouter API key (for accessing LLMs)
+## Setup Guide
 
-## Installation
+Follow these steps to get the Vibe Coder MCP server running and connected to your AI assistant.
 
-### Windows
+### Step 1: Prerequisites
 
-1. Clone or download this repository
-2. Open PowerShell or Command Prompt in the project directory
-3. Run the setup script:
-   ```bash
-   .\setup.bat
-   ```
-4. Edit `.env` file to add your OpenRouter API key
+Make sure you have the following installed on your system:
 
-### macOS/Linux
+1.  **Node.js:** Version 18 or higher recommended. (This includes `npm`, the Node Package Manager). You can download it from [nodejs.org](https://nodejs.org/).
+2.  **Git:** For cloning the repository. You can download it from [git-scm.com](https://git-scm.com/).
+3.  **OpenRouter API Key:** Vibe Coder uses models via OpenRouter. Get a free key at [openrouter.ai](https://openrouter.ai/).
 
-1. Clone or download this repository
-2. Open Terminal in the project directory
-3. Run the setup script:
-   ```bash
-   chmod +x setup.sh
-   ./setup.sh
-   ```
-4. Edit `.env` file to add your OpenRouter API key
+### Step 2: Get the Code
 
-## Starting the Server
-
-After installation, start the server with:
+Open your terminal or command prompt and clone this repository:
 
 ```bash
-npm start
+git clone https://github.com/freshtechbro/vibe-coder-mcp.git # Or your fork's URL
 ```
 
-For SSE transport (HTTP interface), use:
+Navigate into the newly cloned directory:
 
 ```bash
-npm run start:sse
+cd vibe-coder-mcp
 ```
+
+### Step 3: Run the Setup Script
+
+This script installs dependencies, builds the project, and prepares necessary files.
+
+*   **On Windows:**
+    ```batch
+    setup.bat
+    ```
+
+*   **On macOS or Linux:**
+    ```bash
+    chmod +x setup.sh
+    ./setup.sh
+    ```
+
+The script will tell you if it creates a `.env` file.
+
+### Step 4: Add Your API Key
+
+1.  Open the `.env` file located in the `vibe-coder-mcp` directory with a text editor.
+2.  Find the line `OPENROUTER_API_KEY=your_openrouter_api_key_here`.
+3.  Replace `your_openrouter_api_key_here` with your actual OpenRouter API key.
+4.  Save and close the `.env` file.
+
+### Step 5: Integrate with Your AI Assistant
+
+This is the crucial step to connect Vibe Coder to your AI tool. You need to edit the specific configuration file for your assistant.
+
+**A. Find Your Project's Absolute Path:**
+
+You'll need the full path to the `build/index.js` file within the `vibe-coder-mcp` directory you cloned.
+
+*   **Easy way:** Navigate into the `vibe-coder-mcp/build` directory in your terminal and run:
+    *   Windows: `cd build` then `echo %cd%\index.js` (Copy the output)
+    *   macOS/Linux: `cd build` then `pwd` (Copy the output and append `/index.js`)
+*   **Example:** `C:/Users/YourName/Projects/vibe-coder-mcp/build/index.js` or `/Users/YourName/Projects/vibe-coder-mcp/build/index.js`
+
+**B. Prepare the Configuration Block:**
+
+Copy the following JSON block and **replace `<ABSOLUTE_PATH_TO_BUILD_INDEX_JS>`** with the actual path you found above. Also, **replace `<YOUR_OPENROUTER_API_KEY>`** with your key.
+
+```json
+    "vibe-coder-mcp": {
+      "command": "node",
+      "args": ["<ABSOLUTE_PATH_TO_BUILD_INDEX_JS>"],
+      "env": {
+        "NODE_ENV": "production",
+        "OPENROUTER_API_KEY": "<YOUR_OPENROUTER_API_KEY>",
+        "OPENROUTER_BASE_URL": "https://openrouter.ai/api/v1",
+        "GEMINI_MODEL": "google/gemini-2.0-flash-001",
+        "PERPLEXITY_MODEL": "perplexity/sonar-deep-research"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "research", 
+        "generate-rules", 
+        "generate-prd", 
+        "generate-user-stories", 
+        "generate-task-list", 
+        "generate-fullstack-starter-kit", 
+        "process-request"
+      ] 
+    }
+```
+
+**C. Edit Your Assistant's Configuration File:**
+
+*   **Cursor / Windsurf (using VS Code `settings.json`):**
+    1.  Open Cursor/Windsurf.
+    2.  Open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`).
+    3.  Search for and select `Preferences: Open User Settings (JSON)`.
+    4.  Find the `"mcpServers": { ... }` object. If it doesn't exist, add it like this: `"mcpServers": {}`.
+    5.  Paste the prepared configuration block (from step B) inside the curly braces `{}` of `mcpServers`. If other servers are already listed, add a comma `,` before pasting.
+    6.  Save the `settings.json` file.
+
+*   **Cline AI (VS Code Extension):**
+    1.  Open VS Code.
+    2.  Locate the settings file, typically at:
+        *   Windows: `C:\Users\[YourUsername]\AppData\Roaming\Cursor\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json`
+        *   macOS: `~/Library/Application Support/Cursor/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json` (Path might vary slightly)
+        *   Linux: `~/.config/Cursor/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
+    3.  Open this `cline_mcp_settings.json` file.
+    4.  Find the `"mcpServers": { ... }` object. If it doesn't exist, add it.
+    5.  Paste the prepared configuration block (from step B) inside the `mcpServers` object (adding a comma if needed).
+    6.  Save the file.
+
+*   **Claude Desktop:**
+    1.  Locate the settings file:
+        *   Windows: `C:\Users\[YourUsername]\AppData\Roaming\Claude\claude_desktop_config.json`
+        *   macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+    2.  Open this `claude_desktop_config.json` file.
+    3.  Find the `"mcpServers": { ... }` object. If it doesn't exist, add it.
+    4.  Paste the prepared configuration block (from step B) inside the `mcpServers` object (adding a comma if needed).
+    5.  Save the file.
+
+**Important Notes for Configuration:**
+*   **Absolute Path is Crucial:** Make sure the path in `"args"` is the full, absolute path to `build/index.js`. Relative paths usually won't work.
+*   **Use Forward Slashes:** Even on Windows, use forward slashes `/` in the path within the JSON file (e.g., `C:/Users/...`).
+*   **`NODE_ENV`:** Keep `"NODE_ENV": "production"` in the `env` block. This ensures logging works correctly without interfering with the AI assistant.
+
+### Step 6: Restart Your AI Assistant
+
+**Completely close and reopen** Cursor, VS Code (with Cline AI), or Claude Desktop. This allows it to load the new MCP server configuration.
+
+That's it! Your Vibe Coder MCP server should now be connected and ready to use within your AI assistant.
 
 ## Project Structure
 
 ```
 vibe-coder-mcp/
-├── .env                  # Environment configuration
-├── mcp-config.json       # MCP configuration
+├── .env                  # Environment configuration (for local runs)
+├── mcp-config.json       # Example MCP configuration snippet
 ├── package.json          # Project dependencies
 ├── README.md             # This file
 ├── setup.bat             # Windows setup script
 ├── setup.sh              # macOS/Linux setup script
 ├── tsconfig.json         # TypeScript configuration
+├── build/                # Compiled JavaScript output (created by npm run build)
 └── src/                  # Source code
     ├── index.ts          # Entry point
+    ├── logger.ts         # Logging configuration
     ├── server.ts         # MCP server setup
-    ├── services/         # Support services
-    │   ├── hybrid-matcher/       # Hybrid matching service
-    │   ├── intent-service/       # Intent recognition
-    │   ├── matching-service/     # Pattern matching
-    │   └── request-processor/    # Request processing
+    ├── services/         # Support services (request processing, matching)
+    │   ├── hybrid-matcher/
+    │   ├── intent-service/
+    │   ├── matching-service/
+    │   └── request-processor/
     ├── tools/            # Tool implementations
     │   ├── fullstack-starter-kit-generator/
-    │   │   └── README.md         # Detailed tool documentation
+    │   │   └── README.md # Detailed tool documentation
     │   ├── prd-generator/
-    │   │   └── README.md         # Detailed tool documentation
+    │   │   └── README.md # Detailed tool documentation
     │   ├── research-manager/
-    │   │   └── README.md         # Detailed tool documentation
+    │   │   └── README.md # Detailed tool documentation
     │   ├── rules-generator/
-    │   │   └── README.md         # Detailed tool documentation
+    │   │   └── README.md # Detailed tool documentation
     │   ├── sequential-thinking.ts
     │   ├── task-list-generator/
-    │   │   └── README.md         # Detailed tool documentation
+    │   │   └── README.md # Detailed tool documentation
     │   └── user-stories-generator/
-    │       └── README.md         # Detailed tool documentation
+    │       └── README.md # Detailed tool documentation
     ├── utils/            # Shared utility functions
-    │   └── researchHelper.ts     # Centralized Perplexity research functionality
+    │   └── researchHelper.ts # Centralized Perplexity research functionality
     └── types/            # TypeScript type definitions
         ├── globals.d.ts
         ├── tools.ts
         └── workflow.ts
 ```
 
-## Tool Documentation
+## Detailed Tool Documentation
 
-Each tool in the `src/tools/` directory includes comprehensive documentation in its README.md file:
+Each tool in the `src/tools/` directory includes comprehensive documentation in its own README.md file (where available). These files cover:
 
-- **Tool overview and purpose**: What problem the tool solves
-- **Input/output specifications**: Detailed parameter documentation
-- **Workflow diagrams**: Mermaid diagrams showing the processing flow
-- **Usage examples**: Real-world examples of how to use the tool
-- **System prompts**: Key excerpts from generation prompts
-- **Error handling**: How the tool handles various error conditions
+*   Tool overview and purpose
+*   Input/output specifications
+*   Workflow diagrams (Mermaid)
+*   Usage examples
+*   System prompts used
+*   Error handling details
 
-These README files help developers understand each tool's implementation details, generation process, and the specialized models used for each stage (Perplexity for research, Gemini for generation).
+Refer to these individual READMEs for in-depth information:
 
-## Features
+*   `src/tools/fullstack-starter-kit-generator/README.md`
+*   `src/tools/prd-generator/README.md`
+*   `src/tools/research-manager/README.md`
+*   `src/tools/rules-generator/README.md`
+*   `src/tools/task-list-generator/README.md`
+*   `src/tools/user-stories-generator/README.md`
+*   *(Sequential Thinking tool details are primarily in `src/tools/sequential-thinking.ts`)*
 
-### Sequential Thinking Tool
+## Feature Details
 
-The Sequential Thinking tool implements a dynamic problem-solving approach that moves through a flexible thinking process:
+### Sequential Thinking Tool (`sequential-thinking.ts`)
 
-- **Dynamic Problem Analysis**: Breaks down complex problems into sequential thoughts that build upon previous insights
-- **Adaptive Processing**: Adjusts the number of thinking steps as understanding deepens
-- **Revision Capability**: Can question, revise, or branch from previous thoughts
-- **Solution Verification**: Verifies hypothesis based on the complete chain of thought
-- **JSON-Based Structure**: Structures thoughts with metadata tracking sequence, revisions, and branching
+Implements a dynamic problem-solving approach:
 
-The tool leverages OpenRouter to access powerful LLMs for this cognitive process, ensuring thorough analysis of complex problems before generating responses.
+*   **Dynamic Problem Analysis**: Breaks down complex problems into sequential thoughts.
+*   **Adaptive Processing**: Adjusts the number of thinking steps based on complexity.
+*   **Revision Capability**: Can question, revise, or branch from previous thoughts.
+*   **Solution Verification**: Verifies hypotheses based on the chain of thought.
+*   Leverages LLMs via OpenRouter for cognitive processing.
 
-### Request Processor
+### Request Processor (`src/services/request-processor/`)
 
-The Request Processor is the orchestration layer that:
+The orchestration layer that:
 
-- Handles routing of requests to appropriate specialized tools
-- Validates inputs across all tools
-- Processes tool-specific parameters
-- Manages request/response handling for the MCP protocol
+*   Handles routing of requests to appropriate specialized tools.
+*   Validates inputs across all tools.
+*   Processes tool-specific parameters.
+*   Manages request/response handling for the MCP protocol.
 
-### Tools and Functions
+### Generator Tools (`src/tools/*-generator/`)
 
-#### Research Manager
-Performs comprehensive research using Perplexity Sonar through OpenRouter, saving research results to structured markdown files.
+These tools follow a similar pattern:
+1.  Validate input.
+2.  Perform pre-generation research using Perplexity (`researchHelper.ts`).
+3.  Assemble a prompt including inputs and research context.
+4.  Generate the primary output (PRD, rules, etc.) using Gemini via `processWithSequentialThinking`.
+5.  Format and save the output artifact.
+6.  Return the result via MCP.
 
-#### Rules Generator
-Creates project-specific software development rules based on product descriptions and user stories, with storage in both the workflow agent directory and IDE-specific rules directories.
-
-#### PRD Generator
-Generates comprehensive product requirements documents following industry best practices, including executive summaries, problem statements, user personas, requirements, and more.
-
-#### User Stories Generator
-Creates detailed user stories with acceptance criteria, priorities, and identifiers, following the format: "As a [user type], I want [action] so that [benefit]."
-
-#### Task List Generator
-Builds structured development task lists with dependencies, based on user stories and product descriptions, suitable for project planning.
-
-
-#### Fullstack Starter Kit Generator
-Creates customized project starter kits based on specified use case, tech stack preferences, and optional features.
+*   **Research Manager (`research`):** Performs research as its primary function, enhanced by Gemini.
+*   **Rules Generator (`generate-rules`):** Creates project-specific development rules.
+*   **PRD Generator (`generate-prd`):** Generates comprehensive product requirements documents.
+*   **User Stories Generator (`generate-user-stories`):** Creates detailed user stories with acceptance criteria.
+*   **Task List Generator (`generate-task-list`):** Builds structured development task lists with dependencies.
+*   **Fullstack Starter Kit Generator (`generate-fullstack-starter-kit`):** Creates customized project starter kits (definition JSON and setup scripts).
 
 ## System Flow
 
@@ -164,148 +259,22 @@ flowchart TD
     
     Server -->|Process Request| RP[Request Processor]
     
-    RP -->|Sequential Thinking| ST[Sequential Thinking]
-    ST -->|Return Analysis| RP
+    RP -->|May use Sequential Thinking| ST[Sequential Thinking]
+    ST -->|Returns Analysis/Result| RP
     
-    RP -->|Route to Tool| TM[Request Processor]
+    RP -->|Route to Tool| SpecificTool{Specific Tool}
     
-    TM -->|Research Request| RM[Research Manager]
-    TM -->|Rules Request| RG[Rules Generator]
-    TM -->|PRD Request| PRD[PRD Generator]
-    TM -->|User Stories Request| USG[User Stories Generator]
-    TM -->|Task List Request| TLG[Task List Generator]
-    TM -->|Starter Kit Request| FSG[Fullstack Starter Kit]
+    SpecificTool -- Pre-Generation Research --> ResearchUtil[researchHelper.ts (Perplexity)]
+    ResearchUtil -->|Research Context| SpecificTool
     
-    RM -->|Results| TM
-    RG -->|Results| TM
-    PRD -->|Results| TM
-    USG -->|Results| TM
-    TLG -->|Results| TM
-    FSG -->|Results| TM
+    SpecificTool -- Generation --> SeqThinkingUtil[processWithSequentialThinking (Gemini)]
+    SeqThinkingUtil -->|Generated Content| SpecificTool
     
-    TM -->|Tool Results| Server
+    SpecificTool -->|Save Artifact| FileSystem[workflow-agent-files]
+    SpecificTool -->|Tool Results| Server
+    
     Server -->|Response| User
 ```
-
-## Integration with Claude Desktop
-
-Follow these detailed steps to integrate the Vibe Coder MCP server with Claude Desktop:
-
-### 1. Start the MCP Server for Claude
-
-1. Open a command prompt or terminal window
-2. Navigate to your vibe-coder-mcp directory:
-   ```bash
-   cd path/to/vibe-coder-mcp
-   ```
-3. Ensure you've completed the installation steps above, including adding your OpenRouter API key to the `.env` file
-4. Start the server in standard mode:
-   ```bash
-   npm start
-   ```
-   The terminal should display: "Vibe Coder MCP server running on stdio"
-
-### 2. Add MCP Configuration to Claude Desktop
-
-Claude Desktop stores MCP configuration in a JSON settings file. The location depends on your operating system:
-
-#### Windows
-```
-C:\Users\[username]\AppData\Roaming\Claude\claude_desktop_config.json
-```
-
-#### macOS
-```
-~/Library/Application Support/Claude/claude_desktop_config.json
-```
-
-Follow these steps to add the configuration:
-
-1. Open the Claude Desktop configuration file in your text editor
-2. Find or create the `mcpServers` object in the file
-3. Add a new entry for the Vibe Coder MCP, following this format:
-
-```json
-"mcpServers": {
-  "vibe-coder-mcp": {
-    "command": "node",
-    "args": ["path/to/vibe-coder-mcp/build/index.js"],
-    "env": {
-      "OPENROUTER_API_KEY": "your_openrouter_api_key_here",
-      "OPENROUTER_BASE_URL": "https://openrouter.ai/api/v1",
-      "GEMINI_MODEL": "google/gemini-2.0-flash-001",
-      "PERPLEXITY_MODEL": "perplexity/sonar-deep-research",
-      "PORT": "3000"
-    },
-    "disabled": false,
-    "autoApprove": ["research", "generate-rules", "generate-prd", "generate-user-stories", "generate-task-list", "generate-fullstack-starter-kit", "process-request"]
-  }
-}
-```
-
-**Important notes about this configuration:**
-- Replace `"path/to/vibe-coder-mcp/build/index.js"` with the actual full path to the built index.js file
-- Use forward slashes (/) in the path, even on Windows
-- The `autoApprove` array specifies which tools Claude can use without asking for your permission
-- The `env` object should contain the same environment variables as in your `.env` file
-- Make sure to use your actual OpenRouter API key in the configuration
-
-### 3. Verify API Key Configuration
-
-Ensure your OpenRouter API key is:
-1. Correctly set in the `.env` file in your vibe-coder-mcp directory
-2. Correctly copied to the Claude Desktop configuration file in the `env` section
-3. Valid and has sufficient credits on your OpenRouter account
-
-### 4. Restart Claude Desktop
-
-1. Close Claude Desktop completely (including from the system tray/menu bar if applicable)
-2. Relaunch Claude Desktop
-3. Claude should now connect to your running Vibe Coder MCP server on startup
-
-### 5. Test the Integration
-
-To verify the integration is working:
-1. In Claude, try using one of the tools by typing a relevant command, such as:
-   ```
-   Research modern JavaScript frameworks
-   ```
-   or
-   ```
-   Create a PRD for a task management application
-   ```
-2. Claude should connect to your MCP server, process the request, and return results
-3. Check your server terminal for log messages confirming the request was processed
-
-## Configuration
-
-All configuration options are available in the `.env` file:
-
-```bash
-# OpenRouter Configuration
-OPENROUTER_API_KEY=your_openrouter_api_key_here
-OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-GEMINI_MODEL=google/gemini-2.0-flash-001
-PERPLEXITY_MODEL=perplexity/sonar-deep-research
-
-# Server Configuration
-PORT=3000
-```
-
-## Generated File Storage
-
-All outputs from the tools are stored in the `workflow-agent-files` directory with subdirectories organized by tool. These files serve as a historical record of generated content but are not used as active context by the tools themselves:
-
-```bash
-workflow-agent-files/
-  ├── research-manager/
-  ├── rules-generator/
-  ├── prd-generator/
-  ├── user-stories-generator/
-  └── task-list-generator/
-```
-
-Each file is time-stamped and includes a sanitized version of the query or product name for easy reference.
 
 ## Sequential Thinking Process
 
@@ -326,62 +295,55 @@ flowchart TD
     J --> F
 ```
 
+## Generated File Storage
+
+Outputs from the generator tools (PRDs, rules, research reports, etc.) are stored for historical reference in the `workflow-agent-files` directory, organized into subdirectories by tool name:
+
+```bash
+workflow-agent-files/
+  ├── research-manager/
+  ├── rules-generator/
+  ├── prd-generator/
+  ├── user-stories-generator/
+  ├── task-list-generator/
+  └── fullstack-starter-kit-generator/ 
+```
+Files are time-stamped (e.g., `[timestamp]-[sanitized-name]-prd.md`).
+
 ## Usage Examples
 
-### Research
-```bash
-Research on modern JavaScript frameworks
-```
+Interact with the tools via your connected AI assistant:
 
-### Generate Development Rules
-```bash
-Create development rules for a mobile banking application
-```
+*   **Research:** `Research modern JavaScript frameworks`
+*   **Generate Rules:** `Create development rules for a mobile banking application`
+*   **Generate PRD:** `Generate a PRD for a task management application`
+*   **Generate User Stories:** `Generate user stories for an e-commerce website`
+*   **Generate Task List:** `Create a task list for a weather app based on [user stories]`
+*   **Sequential Thinking:** `Think through the architecture for a microservices-based e-commerce platform`
+*   **Fullstack Starter Kit:** `Create a starter kit for a React/Node.js blog application with user authentication`
 
-### Generate PRD
-```bash
-Generate a PRD for a task management application
-```
+## Running Locally (Optional)
 
-### Generate User Stories
-```bash
-Generate user stories for an e-commerce website
-```
+While the primary use is integration with an AI assistant (using stdio), you can run the server directly for testing:
 
-### Generate Task List
-```bash
-Create a task list for a weather app based on [user stories]
-```
-
-
-### Sequential Thinking
-```bash
-Think through the architecture for a microservices-based e-commerce platform
-```
-
-### Fullstack Starter Kit
-```bash
-Create a starter kit for a React/Node.js blog application with user authentication
-```
+*   **Production Mode (Stdio):** `npm start` (Logs go to stderr, mimics AI assistant launch)
+*   **Development Mode (Stdio, Pretty Logs):** `npm run dev` (Logs go to stdout, requires `nodemon`, `pino-pretty`)
+*   **SSE Mode (HTTP Interface):** `npm run start:sse` or `npm run dev:sse` (Uses HTTP, configured via `PORT` in `.env`)
 
 ## Troubleshooting
 
-### API Key Issues
-If you encounter errors related to the OpenRouter API, check:
-- Your API key is correctly set in the `.env` file
-- You have sufficient credits in your OpenRouter account
-- The models specified are available through your OpenRouter account
-
-### File Permission Issues
-If you encounter file permission issues:
-- Ensure the application has write access to the project directory
-- Check if any files are locked by other processes
-
-### Connection Issues
-If Claude Desktop cannot connect to the server:
-- Ensure the server is running
-- Check the port configuration in `.env` and `mcp-config.json` match
-- Verify the filepath in `mcp-config.json` points to the correct build file
+*   **Connection Errors in AI Assistant:**
+    *   Did you completely restart the AI assistant after editing its configuration file?
+    *   Is the absolute path in the configuration's `"args"` correct and using forward slashes `/`?
+    *   Is `"disabled": false` set for `vibe-coder-mcp` in the config?
+*   **API Key Errors:**
+    *   Is the `OPENROUTER_API_KEY` correct in the AI assistant's configuration `env` block?
+    *   (For local runs) Is the key correct in the `.env` file?
+    *   Does your OpenRouter account have credits?
+*   **JSON Errors on Startup (in AI Assistant):**
+    *   Ensure `"NODE_ENV": "production"` is set in the AI assistant's configuration `env` block for `vibe-coder-mcp`. This is critical for correct logging.
+*   **File Permission Issues (during setup or tool use):**
+    *   Ensure your user has write permissions in the `vibe-coder-mcp` directory and its subdirectories (especially `workflow-agent-files`).
 
 ## License
 
