@@ -6,12 +6,15 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "start": "node build/index.js",
-    "start:sse": "node build/index.js --sse",
-    "dev": "tsc -w & nodemon build/index.js",
-    "dev:sse": "tsc -w & nodemon build/index.js --sse",
+    "start": "NODE_ENV=production node build/index.js",
+    "start:sse": "NODE_ENV=production node build/index.js --sse",
+    "dev": "tsc -w & NODE_ENV=development nodemon build/index.js | pino-pretty",
+    "dev:sse": "tsc -w & NODE_ENV=development nodemon build/index.js --sse | pino-pretty",
     "lint": "eslint src/**/*.ts",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run --verbose",
+    "test:watch": "vitest --verbose",
+    "coverage": "vitest run --coverage --verbose",
+    "test:basic": "vitest run src/basic.test.js --verbose",
     "postinstall": "npm i --save-dev @types/node @types/express @types/cors @types/fs-extra"
   },
   "keywords": [
@@ -25,24 +28,28 @@
   "author": "Vibe Coder MCP Team",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^0.2.5",
+    "@modelcontextprotocol/sdk": "^1.7.0",
     "axios": "^1.6.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.18.2",
     "fs-extra": "^11.2.0",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/fs-extra": "^11.0.4",
-    "@types/node": "^20.11.16",
+    "@types/node": "^20.17.27",
+    "@vitest/coverage-v8": "^3.0.9",
     "eslint": "^8.56.0",
     "nodemon": "^3.0.3",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^3.0.9"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.0.0"
   }
 }
