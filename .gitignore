@@ -3,6 +3,7 @@ memory-bank/
 .clinerules/
 .env
 workflow-agent-files/
+docs/
 
 # Dependency directories
 node_modules/
