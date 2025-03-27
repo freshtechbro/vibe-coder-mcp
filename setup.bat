@@ -22,23 +22,6 @@ if not exist workflow-agent-files\rules-generator mkdir workflow-agent-files\rul
 if not exist workflow-agent-files\prd-generator mkdir workflow-agent-files\prd-generator
 if not exist workflow-agent-files\user-stories-generator mkdir workflow-agent-files\user-stories-generator
 if not exist workflow-agent-files\task-list-generator mkdir workflow-agent-files\task-list-generator
-if not exist workflow-agent-files\workflow-manager mkdir workflow-agent-files\workflow-manager
-
-REM Create Memory Bank structure
-echo Setting up Memory Bank structure...
-if not exist memory-bank mkdir memory-bank
-if not exist memory-bank\projectbrief.md type nul > memory-bank\projectbrief.md
-if not exist memory-bank\productContext.md type nul > memory-bank\productContext.md
-if not exist memory-bank\activeContext.md type nul > memory-bank\activeContext.md
-if not exist memory-bank\systemPatterns.md type nul > memory-bank\systemPatterns.md
-if not exist memory-bank\techContext.md type nul > memory-bank\techContext.md
-if not exist memory-bank\progress.md type nul > memory-bank\progress.md
-
-REM Create IDE rule directories
-echo Setting up IDE rule directories...
-if not exist .clinerules mkdir .clinerules
-if not exist .cursorrules mkdir .cursorrules
-if not exist .windsurfrules mkdir .windsurfrules
 
 REM Build TypeScript
 echo Building TypeScript...

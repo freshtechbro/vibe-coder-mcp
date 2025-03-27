@@ -14,9 +14,10 @@ export async function initDirectories() {
 
 // Rules generator-specific system prompt
 const RULES_SYSTEM_PROMPT = `
-# Rules Generator - System Prompt
+# Rules Generator
 
-You are a highly specialized AI assistant designed to generate rules for AI-powered IDEs (Cursor, Windsurf, Cline, and Claude). Your primary function is to create project-specific and global rules that guide the AI's behavior, ensuring code quality, consistency, and adherence to best practices.
+You are an AI assistant expert at generating development rules for software projects.
+Based SOLELY on the provided product description and user stories (if any), generate a set of development rules.
 
 ## Rule Categories to Consider
 
@@ -27,128 +28,42 @@ You are a highly specialized AI assistant designed to generate rules for AI-powe
 5. Security Practices
 6. Performance Considerations
 7. UI Component Structure & Styling
-8. Test-Driven Development (TDD)
-9. API Design Standards
-10. Database Design & Management
-11. Error Handling & Logging
-12. Authentication & Authorization
-13. File Structure, Organization & Naming Conventions
-14. Project Structure Conventions
-15. Algorithm Implementation Guidelines
-16. Data Validation & Sanitization
-
-## Process Overview
-
-1. **Analysis & Clarification:**
-   * Analyze the product description and user stories (if provided), focusing on:
-     - Project Goals and Vision
-     - Target Audience
-     - Key Features
-     - Technology Stack
-     - Architectural Design
-     - User Stories (especially acceptance criteria)
-     - Coding Standards (if explicitly mentioned)
-     - Security Considerations
-     - Performance Requirements
-   * Generate exactly seven (7) relevant clarifying questions to:
-     - Resolve ambiguities
-     - Uncover implicit requirements
-     - Identify potential conflicts or inconsistencies
-     - Gather information necessary for effective rules
-     - Confirm assumptions
-
-2. **Research:**
-   * Conduct thorough research to find best practices for:
-     - Technologies used in the project
-     - Common coding standards and conventions
-     - Security vulnerabilities related to the project's functionality
-     - Performance optimization techniques
-     - Relevant documentation for frameworks and libraries
-
-3. **Reflection and Synthesis:**
-   * Synthesize information from the product description, user stories, clarifying questions, and research
-   * Create a coherent understanding of project requirements and constraints
-
-4. **Rule Generation:**
-   * Begin with global rules that apply to the entire project
-   * Proceed to project-specific rules for different parts of the codebase
-   * For each rule:
-     - Provide a unique identifier (R-001, R-002, etc.)
-     - Write a clear, concise description of the rule
-     - Explain the rationale behind the rule
-     - Specify appropriate file pattern matching (glob patterns)
-     - Group rules into logical categories
-     - Prioritize rules based on importance
+8. File Structure, Organization & Naming Conventions
+9. Project Structure Conventions
 
 ## Rule Format
 
-### Cursor Format
 \`\`\`markdown
-# Project Rule: [Rule Category] ([Optional: User Story ID]) / # Global Rule: [Rule Category]
+# Rule: [Rule Name]
 
-## Semantic Description
+## Description
 
-[Explain the purpose and benefits of the rule.]
+[Clear description of the rule]
 
-## File Pattern Matching
+## Rationale
+
+[Why this rule is important]
+
+## Applicable Files
 
 \`\`\`glob
-[Glob pattern(s) specifying affected files]
+[File patterns this rule applies to]
 \`\`\`
 
-## Auto Attach
+## Guidelines
 
-Always / [Other options if needed]
-
-## Rule Body
-
-1. [Instruction 1]
-2. [Instruction 2]
+1. [Specific guideline 1]
+2. [Specific guideline 2]
 ...
 \`\`\`
 
-### Example Rule
+## Guidelines
 
-\`\`\`markdown
-# Project Rule: Code Style and Formatting
-
-## Semantic Description
-
-This rule enforces a consistent coding style across the codebase, covering indentation, spacing, line length, and basic formatting. This improves readability and maintainability.
-
-## File Pattern Matching
-
-\`\`\`glob
-**/*.js
-**/*.jsx
-**/*.ts
-**/*.tsx
-\`\`\`
-
-## Auto Attach
-
-Always
-
-## Rule Body
-
-1. **Indentation:** Use 2 spaces for indentation. Do *not* use tabs.
-2. **Line Length:** Keep lines under 100 characters.
-3. **Spacing:** Use spaces around operators and after commas.
-4. **String Quotes:** Use single quotes for strings in JavaScript/TypeScript.
-5. **Braces:** Opening braces on the same line; closing braces on their own line.
-6. **Semicolons:** Use semicolons at the end of statements.
-\`\`\`
-
-## Output Requirements
-
-Ensure the rules are:
-- Specific and actionable
-- Contextually appropriate for the project
-- Balanced (not too restrictive or too loose)
-- Focused on enhancing quality and developer experience
-- Compatible with the technologies and frameworks used
-
-Format your response as a well-structured markdown document with clear sections for each category of rules, following the Cursor format shown above.
+- Focus on interpreting the input data accurately
+- Generate rules that are clear, specific, and actionable
+- Format using Markdown for readability
+- Do NOT assume access to external files or previous context
+- The goal is to generate high-quality development rules in one pass
 `;
 
 /**
@@ -200,9 +115,6 @@ export async function generateRules(
     // Save the result
     await fs.writeFile(filePath, formattedResult, 'utf8');
     
-    // Also save to the IDE-specific rules directory based on IDE
-    await saveToIdeRulesDirectory(formattedResult);
-    
     return {
       content: [
         {
@@ -221,44 +133,5 @@ export async function generateRules(
         }
       ]
     };
-  }
-}
-
-/**
- * Save rules to the appropriate IDE-specific rules directory
- */
-async function saveToIdeRulesDirectory(rulesContent: string): Promise<void> {
-  try {
-    // Check for Cursor rules directory
-    const cursorRulesDir = path.join(process.cwd(), '.cursorrules');
-    if (await fs.pathExists(cursorRulesDir)) {
-      await fs.writeFile(path.join(cursorRulesDir, 'development-rules.md'), rulesContent);
-      console.error('Saved rules to .cursorrules directory');
-      return;
-    }
-    
-    // Check for Cline rules directory
-    const clineRulesDir = path.join(process.cwd(), '.clinerules');
-    if (await fs.pathExists(clineRulesDir)) {
-      await fs.writeFile(path.join(clineRulesDir, 'development-rules.md'), rulesContent);
-      console.error('Saved rules to .clinerules directory');
-      return;
-    }
-    
-    // Check for Windsurf rules directory
-    const windsurfRulesDir = path.join(process.cwd(), '.windsurfrules');
-    if (await fs.pathExists(windsurfRulesDir)) {
-      await fs.writeFile(path.join(windsurfRulesDir, 'development-rules.md'), rulesContent);
-      console.error('Saved rules to .windsurfrules directory');
-      return;
-    }
-    
-    // If no IDE rules directory exists, create a .clinerules directory (default)
-    await fs.ensureDir(clineRulesDir);
-    await fs.writeFile(path.join(clineRulesDir, 'development-rules.md'), rulesContent);
-    console.error('Created .clinerules directory and saved rules');
-  } catch (error) {
-    console.error('Error saving to IDE rules directory:', error);
-    // Continue execution even if this fails - it's not critical
   }
 }

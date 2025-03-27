@@ -139,16 +139,6 @@ async function initDirectories() {
       console.error('Error initializing task-list-generator:', error);
     }
     
-    try {
-      const workflowManager = await import('./tools/workflow-manager/index.js');
-      if (typeof workflowManager.initDirectories === 'function') {
-        await workflowManager.initDirectories();
-        console.error('Initialized workflow-manager directories');
-      }
-    } catch (error) {
-      console.error('Error initializing workflow-manager:', error);
-    }
-    
     console.error('Tool directory initialization complete');
   } catch (error) {
     console.error('Error initializing directories:', error);

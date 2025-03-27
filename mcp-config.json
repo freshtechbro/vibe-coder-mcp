@@ -29,11 +29,6 @@
       "description": "Creates project-specific development rules",
       "use_cases": ["coding standards", "project guidelines"],
       "input_patterns": ["setup rules for {project}", "define standards for {language}"]
-    },
-    "workflow-manager": {
-      "description": "Tracks project progress and task states",
-      "use_cases": ["status updates", "progress tracking"],
-      "input_patterns": ["update {task} to {status}", "report progress on {feature}"]
     }
   }
 }

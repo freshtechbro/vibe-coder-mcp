@@ -1,19 +1,18 @@
 # Vibe Coder MCP Server
 
-An MCP server that functions as a task manager and workflow agent for AI-assisted development. This server enhances AI-powered development environments with tools for research, planning, requirements generation, and workflow management.
+An MCP server that provides stateless tools and generators for AI-assisted development. This server enhances AI-powered development environments with tools for research, planning, and requirements generation.
 
 ## Overview
 
 Vibe Coder MCP integrates with Claude Desktop and other MCP-compatible clients to provide the following capabilities:
 
 - **Sequential Thinking**: Processes problems through a flexible, step-by-step thinking approach
-- **Task Manager**: Coordinates task processing and workflow between different tools
+- **Request Processor**: Routes and manages requests to appropriate specialized tools
 - **Research Manager**: Deep research capabilities using Perplexity Sonar
 - **Rules Generator**: Creates development rules tailored to specific projects
 - **PRD Generator**: Produces detailed product requirements documents
 - **User Stories Generator**: Creates structured user stories with acceptance criteria
 - **Task List Generator**: Develops detailed development task lists with dependencies
-- **Workflow Manager**: Tracks project progress and task states
 - **Fullstack Starter Kit Generator**: Creates custom project starter kits with tailored tech stacks
 
 ## Requirements
@@ -85,9 +84,7 @@ vibe-coder-mcp/
     │   ├── rules-generator/
     │   ├── sequential-thinking.ts
     │   ├── task-list-generator/
-    │   ├── task-manager.ts
     │   ├── user-stories-generator/
-    │   └── workflow-manager/
     └── types/            # TypeScript type definitions
         ├── globals.d.ts
         ├── tools.ts
@@ -108,14 +105,13 @@ The Sequential Thinking tool implements a dynamic problem-solving approach that 
 
 The tool leverages OpenRouter to access powerful LLMs for this cognitive process, ensuring thorough analysis of complex problems before generating responses.
 
-### Task Manager Tool
+### Request Processor
 
-The Task Manager is the orchestration layer that:
+The Request Processor is the orchestration layer that:
 
 - Handles routing of requests to appropriate specialized tools
 - Validates inputs across all tools
 - Processes tool-specific parameters
-- Coordinates workflow between different components
 - Manages request/response handling for the MCP protocol
 
 ### Tools and Functions
@@ -135,8 +131,6 @@ Creates detailed user stories with acceptance criteria, priorities, and identifi
 #### Task List Generator
 Builds structured development task lists with dependencies, based on user stories and product descriptions, suitable for project planning.
 
-#### Workflow Manager
-Tracks project progress by maintaining task status, updating workflow files with current project state, and providing status reports.
 
 #### Fullstack Starter Kit Generator
 Creates customized project starter kits based on specified use case, tech stack preferences, and optional features.
@@ -152,14 +146,13 @@ flowchart TD
     RP -->|Sequential Thinking| ST[Sequential Thinking]
     ST -->|Return Analysis| RP
     
-    RP -->|Route to Tool| TM[Task Manager]
+    RP -->|Route to Tool| TM[Request Processor]
     
     TM -->|Research Request| RM[Research Manager]
     TM -->|Rules Request| RG[Rules Generator]
     TM -->|PRD Request| PRD[PRD Generator]
     TM -->|User Stories Request| USG[User Stories Generator]
     TM -->|Task List Request| TLG[Task List Generator]
-    TM -->|Workflow Request| WM[Workflow Manager]
     TM -->|Starter Kit Request| FSG[Fullstack Starter Kit]
     
     RM -->|Results| TM
@@ -167,7 +160,6 @@ flowchart TD
     PRD -->|Results| TM
     USG -->|Results| TM
     TLG -->|Results| TM
-    WM -->|Results| TM
     FSG -->|Results| TM
     
     TM -->|Tool Results| Server
@@ -225,7 +217,7 @@ Follow these steps to add the configuration:
       "PORT": "3000"
     },
     "disabled": false,
-    "autoApprove": ["research", "generate-rules", "generate-prd", "generate-user-stories", "generate-task-list", "manage-workflow", "generate-fullstack-starter-kit", "process-request"]
+    "autoApprove": ["research", "generate-rules", "generate-prd", "generate-user-stories", "generate-task-list", "generate-fullstack-starter-kit", "process-request"]
   }
 }
 ```
@@ -281,7 +273,7 @@ PORT=3000
 
 ## Generated File Storage
 
-All outputs from the tools are stored in the `workflow-agent-files` directory with subdirectories organized by tool:
+All outputs from the tools are stored in the `workflow-agent-files` directory with subdirectories organized by tool. These files serve as a historical record of generated content but are not used as active context by the tools themselves:
 
 ```bash
 workflow-agent-files/
@@ -289,11 +281,10 @@ workflow-agent-files/
   ├── rules-generator/
   ├── prd-generator/
   ├── user-stories-generator/
-  ├── task-list-generator/
-  └── workflow-manager/
+  └── task-list-generator/
 ```
 
-Each file is time-stamped and includes a sanitized version of the query or product name.
+Each file is time-stamped and includes a sanitized version of the query or product name for easy reference.
 
 ## Sequential Thinking Process
 
@@ -341,10 +332,6 @@ Generate user stories for an e-commerce website
 Create a task list for a weather app based on [user stories]
 ```
 
-### Manage Workflow
-```bash
-Update workflow status with task T-001 completed
-```
 
 ### Sequential Thinking
 ```bash

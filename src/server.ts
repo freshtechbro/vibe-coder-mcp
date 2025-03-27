@@ -11,7 +11,6 @@ import { generateRules } from "./tools/rules-generator/index.js";
 import { generatePRD } from "./tools/prd-generator/index.js";
 import { generateUserStories } from "./tools/user-stories-generator/index.js";
 import { generateTaskList } from "./tools/task-list-generator/index.js";
-import { manageWorkflow } from "./tools/workflow-manager/index.js";
 import { OpenRouterConfig } from "./types/workflow.js";
 
 // Import the request processing services
@@ -40,7 +39,7 @@ export function createServer(): McpServer {
     },
     {
       instructions: `
-Vibe Coder MCP server provides tools for workflow management and development automation:
+Vibe Coder MCP server provides tools for development automation:
 
 1. Fullstack Starter Kit - Generates custom full-stack project starter kits
 2. Research - Performs deep research using Perplexity Sonar
@@ -48,7 +47,6 @@ Vibe Coder MCP server provides tools for workflow management and development aut
 4. Generate PRD - Creates comprehensive product requirements documents
 5. Generate User Stories - Creates detailed user stories
 6. Generate Task List - Creates detailed development task lists
-7. Manage Workflow - Tracks project progress and task states
 
 All generated artifacts are stored in structured directories.
       `
@@ -127,22 +125,6 @@ All generated artifacts are stored in structured directories.
     },
     async ({ productDescription, userStories }): Promise<CallToolResult> => {
       const result = await generateTaskList(productDescription, userStories, config);
-      return {
-        content: result.content
-      };
-    }
-  );
-
-  // Register the workflow manager tool
-  server.tool(
-    "manage-workflow",
-    "Tracks project progress and maintains development state",
-    {
-      taskList: z.string().describe("Task list content"),
-      completedTask: z.string().optional().describe("Optional task ID that has been completed")
-    },
-    async ({ taskList, completedTask }): Promise<CallToolResult> => {
-      const result = await manageWorkflow(taskList, completedTask, config);
       return {
         content: result.content
       };
@@ -257,11 +239,6 @@ All generated artifacts are stored in structured directories.
             params.userStories || "", 
             config
           );
-        },
-        "workflow-manager": async (params) => {
-          // Cast the completedTask to string or undefined
-          const completedTask = params.completedTask ? String(params.completedTask) : undefined;
-          return manageWorkflow(params.taskList || "", completedTask, config);
         }
       };
       

@@ -62,20 +62,10 @@ Base your recommendations on modern development practices and the specific needs
     const analysis = await processWithSequentialThinking(analysisPrompt, config);
     logs.push(`[${new Date().toISOString()}] Completed initial analysis`);
     
-    // Step 2: Search for additional information if needed using Perplexity Sonar
+    // Skip external research and rely solely on the input parameters
     let researchResults = '';
     if (input.request_recommendation) {
-      logs.push(`[${new Date().toISOString()}] Searching for additional information with Perplexity Sonar`);
-      
-      const query = `Best practices and modern frameworks for ${input.use_case} application development in 2025`;
-      try {
-        const result = await perplexitySonarSearch(query, config);
-        researchResults = result.answer;
-        logs.push(`[${new Date().toISOString()}] Successfully retrieved additional research`);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        logs.push(`[${new Date().toISOString()}] Warning: Research error: ${errorMessage}`);
-      }
+      logs.push(`[${new Date().toISOString()}] Using built-in knowledge for recommendations`);
     }
     
     // Step 3: Generate the final recommendation

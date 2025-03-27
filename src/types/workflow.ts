@@ -8,19 +8,6 @@ export interface OpenRouterConfig {
   perplexityModel: string;
 }
 
-/**
- * Interface for tasks in the task list
- */
-export interface Task {
-  id: string;
-  title: string;
-  description: string;
-  priority: 'High' | 'Medium' | 'Low';
-  status: 'Pending' | 'In Progress' | 'Completed';
-  dependencies?: string[];
-  assignedTo?: string;
-  userStoryId?: string;
-}
 
 /**
  * Message object for LLM requests
@@ -107,15 +94,6 @@ export interface RulesGeneratorResult {
   }[];
 }
 
-/**
- * Result type for the Workflow Manager tool
- */
-export interface WorkflowManagerResult {
-  content: {
-    type: "text";
-    text: string;
-  }[];
-}
 
 /**
  * Standard response format for all tools

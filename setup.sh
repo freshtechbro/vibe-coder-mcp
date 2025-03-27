@@ -21,23 +21,6 @@ mkdir -p workflow-agent-files/rules-generator
 mkdir -p workflow-agent-files/prd-generator
 mkdir -p workflow-agent-files/user-stories-generator
 mkdir -p workflow-agent-files/task-list-generator
-mkdir -p workflow-agent-files/workflow-manager
-
-# Create Memory Bank structure
-echo "Setting up Memory Bank structure..."
-mkdir -p memory-bank
-touch memory-bank/projectbrief.md
-touch memory-bank/productContext.md
-touch memory-bank/activeContext.md
-touch memory-bank/systemPatterns.md
-touch memory-bank/techContext.md
-touch memory-bank/progress.md
-
-# Create IDE rule directories
-echo "Setting up IDE rule directories..."
-mkdir -p .clinerules
-mkdir -p .cursorrules
-mkdir -p .windsurfrules
 
 # Build TypeScript
 echo "Building TypeScript..."
