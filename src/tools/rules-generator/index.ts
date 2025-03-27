@@ -1,8 +1,9 @@
 import fs from 'fs-extra';
 import path from 'path';
-import axios from 'axios';
 import { OpenRouterConfig, RulesGeneratorResult } from '../../types/workflow.js';
 import { processWithSequentialThinking } from '../sequential-thinking.js';
+import { performResearchQuery } from '../../utils/researchHelper.js';
+import logger from '../../logger.js';
 
 // Ensure directories exist
 const RULES_DIR = path.join(process.cwd(), 'workflow-agent-files', 'rules-generator');
@@ -17,7 +18,14 @@ const RULES_SYSTEM_PROMPT = `
 # Rules Generator
 
 You are an AI assistant expert at generating development rules for software projects.
-Based SOLELY on the provided product description and user stories (if any), generate a set of development rules.
+Based on the provided product description, user stories (if any), and research context, generate a set of development rules.
+
+## Using Research Context
+
+* Carefully consider the **Pre-Generation Research Context** (provided by Perplexity) included in the main task prompt.
+* This research contains valuable insights on best practices, common rule categories, and architecture patterns.
+* Use these insights to inform your rules while keeping the focus on the primary product requirements.
+* Incorporate industry standards and modern development practices from the research.
 
 ## Rule Categories to Consider
 
@@ -59,11 +67,12 @@ Based SOLELY on the provided product description and user stories (if any), gene
 
 ## Guidelines
 
-- Focus on interpreting the input data accurately
+- Focus on interpreting both the product requirements and research context accurately
 - Generate rules that are clear, specific, and actionable
+- Prioritize rules that align with both project requirements and industry best practices
 - Format using Markdown for readability
-- Do NOT assume access to external files or previous context
-- The goal is to generate high-quality development rules in one pass
+- Do NOT assume access to external files or previous context beyond what's provided
+- The goal is to generate high-quality development rules that incorporate both project-specific needs and industry standards
 `;
 
 /**
@@ -84,29 +93,89 @@ export async function generateRules(
     const filename = `${timestamp}-${sanitizedName}-rules.md`;
     const filePath = path.join(RULES_DIR, filename);
     
-    // Create the prompt based on available information
-    let prompt = `Create a comprehensive set of development rules for the following product:\n\n${productDescription}`;
-    
-    if (userStories) {
-      prompt += `\n\nBased on these user stories:\n\n${userStories}`;
-    }
-    
-    if (ruleCategories && ruleCategories.length > 0) {
-      prompt += `\n\nFocus on these rule categories:\n${ruleCategories.map(c => `- ${c}`).join('\n')}`;
-    }
-    
-    // Process the rules generation with sequential thinking
-    console.error(`Generating rules for: ${productDescription.substring(0, 50)}...`);
-    
+    // Validate config
     if (!config) {
       throw new Error("OpenRouter configuration is required");
     }
     
+    // Perform pre-generation research using Perplexity
+    logger.info({ inputs: { productDescription: productDescription.substring(0, 50), userStories: userStories?.substring(0, 50), ruleCategories } }, "Rules Generator: Starting pre-generation research...");
+    
+    let researchContext = '';
+    try {
+      // Define relevant research queries
+      const query1 = `Best development practices and coding standards for building: ${productDescription}`;
+      
+      const query2 = ruleCategories && ruleCategories.length > 0 
+        ? `Specific rules and guidelines for these categories in software development: ${ruleCategories.join(', ')}`
+        : `Common software development rule categories for: ${productDescription}`;
+      
+      // Extract product type for the third query
+      const productTypeLowercase = productDescription.toLowerCase();
+      let productType = "software application";
+      if (productTypeLowercase.includes("web") || productTypeLowercase.includes("website")) {
+        productType = "web application";
+      } else if (productTypeLowercase.includes("mobile") || productTypeLowercase.includes("app")) {
+        productType = "mobile application";
+      } else if (productTypeLowercase.includes("api")) {
+        productType = "API service";
+      } else if (productTypeLowercase.includes("game")) {
+        productType = "game";
+      }
+      
+      const query3 = `Modern architecture patterns and file organization for ${productType} development`;
+      
+      // Execute research queries in parallel using Perplexity
+      const researchResults = await Promise.allSettled([
+        performResearchQuery(query1, config), // Uses config.perplexityModel (perplexity/sonar-deep-research)
+        performResearchQuery(query2, config),
+        performResearchQuery(query3, config)
+      ]);
+      
+      // Process research results
+      researchContext = "## Pre-Generation Research Context (From Perplexity Sonar Deep Research):\n\n";
+      
+      // Add results that were fulfilled
+      researchResults.forEach((result, index) => {
+        const queryLabels = ["Best Practices", "Rule Categories", "Architecture Patterns"];
+        if (result.status === "fulfilled") {
+          researchContext += `### ${queryLabels[index]}:\n${result.value.trim()}\n\n`;
+        } else {
+          logger.warn({ error: result.reason }, `Research query ${index + 1} failed`);
+          researchContext += `### ${queryLabels[index]}:\n*Research on this topic failed.*\n\n`;
+        }
+      });
+      
+      logger.info("Rules Generator: Pre-generation research completed.");
+    } catch (researchError) {
+      logger.error({ err: researchError }, "Rules Generator: Error during research aggregation");
+      researchContext = "## Pre-Generation Research Context:\n*Error occurred during research phase.*\n\n";
+    }
+    
+    // Create the main generation prompt with combined research and inputs
+    let mainGenerationPrompt = `Create a comprehensive set of development rules for the following product:\n\n${productDescription}`;
+    
+    if (userStories) {
+      mainGenerationPrompt += `\n\nBased on these user stories:\n\n${userStories}`;
+    }
+    
+    if (ruleCategories && ruleCategories.length > 0) {
+      mainGenerationPrompt += `\n\nFocus on these rule categories:\n${ruleCategories.map(c => `- ${c}`).join('\n')}`;
+    }
+    
+    // Add research context to the prompt
+    mainGenerationPrompt += `\n\n${researchContext}`;
+    
+    // Process the rules generation with sequential thinking using Gemini
+    logger.info("Rules Generator: Starting main generation using Gemini...");
+    
     const rulesResult = await processWithSequentialThinking(
-      prompt, 
-      config,
+      mainGenerationPrompt, 
+      config, // Contains config.geminiModel which processWithSequentialThinking uses
       RULES_SYSTEM_PROMPT
     );
+    
+    logger.info("Rules Generator: Main generation completed.");
     
     // Format the rules with a title header
     const ruleset = productDescription.substring(0, 30).replace(/[^a-zA-Z0-9 ]/g, '');
@@ -124,7 +193,7 @@ export async function generateRules(
       ]
     };
   } catch (error) {
-    console.error('Rules Generator Error:', error);
+    logger.error({ err: error }, 'Rules Generator Error');
     return {
       content: [
         {
