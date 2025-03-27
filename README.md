@@ -79,17 +79,38 @@ vibe-coder-mcp/
     │   └── request-processor/    # Request processing
     ├── tools/            # Tool implementations
     │   ├── fullstack-starter-kit-generator/
+    │   │   └── README.md         # Detailed tool documentation
     │   ├── prd-generator/
+    │   │   └── README.md         # Detailed tool documentation
     │   ├── research-manager/
+    │   │   └── README.md         # Detailed tool documentation
     │   ├── rules-generator/
+    │   │   └── README.md         # Detailed tool documentation
     │   ├── sequential-thinking.ts
     │   ├── task-list-generator/
-    │   ├── user-stories-generator/
+    │   │   └── README.md         # Detailed tool documentation
+    │   └── user-stories-generator/
+    │       └── README.md         # Detailed tool documentation
+    ├── utils/            # Shared utility functions
+    │   └── researchHelper.ts     # Centralized Perplexity research functionality
     └── types/            # TypeScript type definitions
         ├── globals.d.ts
         ├── tools.ts
         └── workflow.ts
 ```
+
+## Tool Documentation
+
+Each tool in the `src/tools/` directory includes comprehensive documentation in its README.md file:
+
+- **Tool overview and purpose**: What problem the tool solves
+- **Input/output specifications**: Detailed parameter documentation
+- **Workflow diagrams**: Mermaid diagrams showing the processing flow
+- **Usage examples**: Real-world examples of how to use the tool
+- **System prompts**: Key excerpts from generation prompts
+- **Error handling**: How the tool handles various error conditions
+
+These README files help developers understand each tool's implementation details, generation process, and the specialized models used for each stage (Perplexity for research, Gemini for generation).
 
 ## Features
 
@@ -212,7 +233,7 @@ Follow these steps to add the configuration:
     "env": {
       "OPENROUTER_API_KEY": "your_openrouter_api_key_here",
       "OPENROUTER_BASE_URL": "https://openrouter.ai/api/v1",
-      "GEMINI_MODEL": "google/gemini-2.5-pro-exp-03-25:free",
+      "GEMINI_MODEL": "google/gemini-2.0-flash-001",
       "PERPLEXITY_MODEL": "perplexity/sonar-deep-research",
       "PORT": "3000"
     },
@@ -264,7 +285,7 @@ All configuration options are available in the `.env` file:
 # OpenRouter Configuration
 OPENROUTER_API_KEY=your_openrouter_api_key_here
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-GEMINI_MODEL=google/gemini-2.5-pro-exp-03-25:free
+GEMINI_MODEL=google/gemini-2.0-flash-001
 PERPLEXITY_MODEL=perplexity/sonar-deep-research
 
 # Server Configuration
