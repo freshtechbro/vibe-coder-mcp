@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import { OpenRouterConfig, LLMRequest, LLMResponse, Message } from '../types/workflow.js';
+import logger from '../logger.js';
 
 /**
  * Interface for a sequential thought
@@ -93,7 +94,7 @@ export async function processWithSequentialThinking(
       : `Task: ${userPrompt}\n\nProvide your first thought:`;
     
     // Log the current state (useful for debugging)
-    console.error(`Processing thought ${currentThought.thought_number} (total estimate: ${currentThought.total_thoughts})...`);
+    logger.debug(`Processing thought ${currentThought.thought_number} (total estimate: ${currentThought.total_thoughts})...`);
     
     // Get the next thought from the AI
     const nextThought = await getNextThought(prompt, fullSystemPrompt, config);
@@ -163,7 +164,7 @@ async function getNextThought(
         
         return thought;
       } catch (parseError) {
-        console.error("Failed to parse thought:", parseError);
+        logger.error({ err: parseError }, "Failed to parse thought");
         // Create a fallback thought if parsing fails
         return {
           thought: typeof content === 'string' ? content : String(content),
@@ -176,7 +177,7 @@ async function getNextThought(
       throw new Error("No response received from model");
     }
   } catch (error) {
-    console.error("API Error:", error);
+    logger.error({ err: error }, "API Error in sequential thinking");
     if (axios.isAxiosError(error)) {
       const axiosError = error as AxiosError;
       throw new Error(`API error: ${axiosError.response?.status} - ${JSON.stringify(axiosError.response?.data || {})}`);

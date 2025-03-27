@@ -33,8 +33,8 @@ if [ ! -f .env ]; then
 # OpenRouter Configuration
 OPENROUTER_API_KEY=your_openrouter_api_key_here
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-GEMINI_MODEL=google/gemini-1.5-pro-latest
-PERPLEXITY_MODEL=perplexity/sonar-small-online
+GEMINI_MODEL=google/gemini-2.0-flash-001
+PERPLEXITY_MODEL=perplexity/sonar-deep-research
 
 # Server Configuration
 PORT=3000

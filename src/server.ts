@@ -3,6 +3,7 @@ import { z } from "zod";
 import dotenv from "dotenv";
 import { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import logger from "./logger.js";
 
 // Import tool implementations
 import { generateFullstackStarterKit } from "./tools/fullstack-starter-kit-generator/index.js";
@@ -23,7 +24,7 @@ dotenv.config();
 const config: OpenRouterConfig = {
   baseUrl: process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1",
   apiKey: process.env.OPENROUTER_API_KEY || "",
-  geminiModel: process.env.GEMINI_MODEL || "google/gemini-2.5-pro-exp-03-25:free",
+  geminiModel: process.env.GEMINI_MODEL || "google/gemini-2.0-flash-001",
   perplexityModel: process.env.PERPLEXITY_MODEL || "perplexity/sonar-deep-research"
 };
 
@@ -52,6 +53,12 @@ All generated artifacts are stored in structured directories.
       `
     }
   );
+  
+  // Log server initialization
+  logger.info('MCP Server initialized');
+  
+  // Note: McpServer doesn't expose direct error handling hook
+  // Errors will be caught in the main index.ts
 
   // Register the research tool
   server.tool(

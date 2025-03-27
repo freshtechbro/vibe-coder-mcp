@@ -34,8 +34,8 @@ if not exist .env (
         echo # OpenRouter Configuration
         echo OPENROUTER_API_KEY=your_openrouter_api_key_here
         echo OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-        echo GEMINI_MODEL=google/gemini-1.5-pro-latest
-        echo PERPLEXITY_MODEL=perplexity/sonar-small-online
+        echo GEMINI_MODEL=google/gemini-2.0-flash-001
+        echo PERPLEXITY_MODEL=perplexity/sonar-deep-research
         echo.
         echo # Server Configuration
         echo PORT=3000
