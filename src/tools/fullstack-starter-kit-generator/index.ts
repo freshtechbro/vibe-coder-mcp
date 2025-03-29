@@ -130,83 +130,108 @@ Do NOT attempt to access external files or previous context outside of what's pr
     
     // Step 3: Generate the final recommendation with research context if available
     const finalPrompt = `
-Based SOLELY on your analysis of the use case:
-${input.use_case}
+# ROLE & GOAL
+You are an expert Full-Stack Software Architect AI. Your goal is to generate a **VALID JSON object** defining a starter kit configuration based on the provided use case, preferences, and research context.
 
-${researchContext ? `And considering this additional research:\n${researchContext}\n\n` : ''}
+# CORE TASK
+Generate a JSON object that precisely matches the schema described below. This JSON will be used to automatically generate project files and setup scripts.
 
-Please provide a detailed starter kit recommendation in the following JSON format:
+# INPUT HANDLING
+- Analyze the 'use_case' to understand the core requirements of the application.
+- Consider the 'tech_stack_preferences' provided by the user, but feel free to override them if research suggests better alternatives, explaining why in the 'rationale'.
+- If 'request_recommendation' was true, heavily utilize the '## Pre-Generation Research Context' provided below.
+- Incorporate any specified 'include_optional_features'.
 
+# RESEARCH CONTEXT INTEGRATION
+- **CRITICAL (If Provided):** Carefully review the '## Pre-Generation Research Context (From Perplexity Sonar Deep Research)' section.
+- Use insights on 'Technology Stack Recommendations', 'Best Practices & Architecture', and 'Development Tooling & Libraries' to make informed decisions about the \`techStack\`, \`directoryStructure\`, \`dependencies\`, and \`setupCommands\`.
+- Justify technology choices in the \`rationale\` field, referencing research findings where applicable.
+- Design the \`directoryStructure\` based on standard patterns identified in the research for the chosen tech stack and use case.
+
+# OUTPUT FORMAT & STRUCTURE (Strict JSON Object)
+- Your **ENTIRE** response **MUST** be a single, valid JSON object.
+- Do **NOT** wrap the JSON in Markdown code blocks (\`\`\`json ... \`\`\`).
+- The JSON object **MUST** conform **EXACTLY** to the following structure:
+
+\`\`\`json
 {
-  "projectName": "example-project-name",
-  "description": "A detailed description of the project",
+  "projectName": "string (e.g., my-ecommerce-app)",
+  "description": "string (Detailed description of the project and its purpose)",
   "techStack": {
-    "frontend": {
-      "name": "React",
-      "version": "18.x",
-      "rationale": "Explanation for this choice"
-    },
-    "backend": {
-      "name": "Node.js",
-      "version": "18.x",
-      "rationale": "Explanation for this choice"
-    },
-    "database": {
-      "name": "MongoDB",
-      "version": "5.x",
-      "rationale": "Explanation for this choice"
+    "[component: string]": { // e.g., "frontend", "backend", "database", "orm", "authentication"
+      "name": "string (e.g., React, Node.js, PostgreSQL, Prisma, NextAuth.js)",
+      "version": "string (Optional, e.g., 18.x, ^16.0)",
+      "rationale": "string (Justification for choosing this tech, referencing research if applicable)"
     }
-    // Add other components as needed
+    // Include all relevant components for a full-stack app
   },
   "directoryStructure": [
-    {
-      "path": "/",
-      "type": "directory",
+    { // Root directory object(s) - usually just one representing the project root
+      "path": "string (Relative path, e.g., / or .)",
+      "type": "'directory'",
       "content": null,
-      "children": [
+      "generationPrompt": null, // Should be null for directories
+      "children": [ // Array of file or directory objects within this directory
         {
-          "path": "/src",
-          "type": "directory",
-          "content": null,
-          "children": [
-            {
-              "path": "/src/index.js",
-              "type": "file",
-              "content": "console.log('Hello World');"
-            }
-          ]
+          "path": "string (Relative path from parent, e.g., /src or /README.md)",
+          "type": "'file' | 'directory'",
+          "content": "string | null (Actual file content as a string OR null if using generationPrompt)",
+          "generationPrompt": "string | null (Prompt to generate content later OR null if content is provided/directory)",
+          "children": "[Optional array of nested file/directory objects if type is 'directory']"
         }
+        // ... more children ...
       ]
     }
   ],
   "dependencies": {
-    "npm": {
-      "root": {
-        "dependencies": {
-          "express": "^4.18.2"
-        },
-        "devDependencies": {
-          "nodemon": "^2.0.22"
-        }
+    "npm": { // Or potentially "yarn"
+      "root": { // Dependencies for the root package.json
+        "dependencies": { "[packageName: string]": "string (version, e.g., ^4.18.2)" },
+        "devDependencies": { "[packageName: string]": "string (version, e.g., ^3.0.0)" }
+      },
+      "[subDirectory: string]": { // Optional: For workspaces/monorepos (e.g., "client", "server")
+        "dependencies": { "[packageName: string]": "string" },
+        "devDependencies": { "[packageName: string]": "string" }
       }
     }
   },
-  "setupCommands": [
-    "npm install",
-    "npm run dev"
+  "setupCommands": [ // Array of shell commands to run after file creation and dependency installation
+    "string (e.g., npm install, npx prisma migrate dev, npm run build:client)"
   ],
-  "nextSteps": [
-    "Configure environment variables",
-    "Set up database connection"
+  "nextSteps": [ // Array of strings describing manual follow-up actions
+    "string (e.g., Configure .env file with API keys, Set up database connection string)"
   ]
 }
+\`\`\`
 
-**CRITICAL:** Your entire response MUST be a single, valid JSON object conforming to the schema described above. Do NOT include any explanatory text, greetings, apologies, or markdown formatting (like \`\`\`json) before or after the JSON object itself. The response should start with \`{\` and end with \`}\`.
+# QUALITY ATTRIBUTES
+- **Valid JSON:** The output must be parseable JSON.
+- **Schema Conformant:** The JSON must strictly match the structure and types described above.
+- **Comprehensive:** Include all necessary components for a basic working starter kit for the use case.
+- **Modern:** Utilize current, stable technologies and practices, informed by research.
+- **Well-Rationalized:** Technology choices should be justified.
+- **Organized:** The directory structure should be logical and follow common conventions identified in research.
+- **Complete:** Provide basic placeholder content or generation prompts for key files.
 
-Ensure the recommendation is comprehensive, follows best practices, and is tailored to the specific use case.
-Do NOT attempt to access any external files, databases, or information sources.
+# CONSTRAINTS (Do NOT Do the Following)
+- **NO Conversational Text:** Output **ONLY** the JSON object. No greetings, explanations, apologies, or summaries before or after the JSON.
+- **NO Markdown:** Do not use Markdown formatting (like \`\`\`).
+- **NO Comments in JSON:** Standard JSON does not support comments.
+- **NO External Knowledge:** Base the starter kit *only* on the provided inputs and research context.
+- **Strict JSON:** The response must start with \`{\` and end with \`}\` and contain nothing else.
+- **Ensure \`content\` OR \`generationPrompt\`:** For files in \`directoryStructure\`, provide either \`content\` (string) or \`generationPrompt\` (string), not both. Both can be \`null\` for an empty file. Directories must have \`content\` and \`generationPrompt\` as \`null\`.
+
+# EXAMPLE INPUTS (for context only, do not include in output):
+Use Case: ${input.use_case}
+Preferences: ${JSON.stringify(input.tech_stack_preferences || {}, null, 2)}
+Research Requested: ${input.request_recommendation}
+Optional Features: ${JSON.stringify(input.include_optional_features || [])}
+${researchContext ? `Research Context:\n${researchContext}` : 'No research context provided.'}
+
+# FINAL INSTRUCTION: Generate the JSON object now.
 `;
 
+    // Ensure this finalPrompt is used in the processWithSequentialThinking call
     const finalRecommendation = await processWithSequentialThinking(finalPrompt, config);
     logger.info(`[${new Date().toISOString()}] Received generation output from Gemini.`);
     logs.push(`[${new Date().toISOString()}] Received generation output from Gemini.`);
