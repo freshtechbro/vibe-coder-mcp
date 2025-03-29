@@ -1,9 +1,12 @@
 import fs from 'fs-extra';
 import path from 'path';
+import { z } from 'zod'; // Added Zod import
+import { CallToolResult } from '@modelcontextprotocol/sdk/types.js'; // Added MCP type import
 import { OpenRouterConfig } from '../../types/workflow.js';
 import { processWithSequentialThinking } from '../sequential-thinking.js';
 import { performResearchQuery } from '../../utils/researchHelper.js';
 import logger from '../../logger.js';
+import { registerTool, ToolDefinition, ToolExecutor } from '../../services/routing/toolRegistry.js'; // Added registry imports
 
 // Ensure directories exist
 const PRD_DIR = path.join(process.cwd(), 'workflow-agent-files', 'prd-generator');
@@ -13,8 +16,8 @@ export async function initDirectories() {
   await fs.ensureDir(PRD_DIR);
 }
 
-// PRD-specific system prompt
-const PRD_SYSTEM_PROMPT = `
+// PRD-specific system prompt (Exported for testing)
+export const PRD_SYSTEM_PROMPT = `
 # ROLE & GOAL
 You are an expert Product Manager and Technical Writer AI assistant. Your goal is to generate a comprehensive, clear, and well-structured Product Requirements Document (PRD) in Markdown format based on the provided inputs.
 
@@ -94,16 +97,26 @@ Generate a detailed PRD based on the user's product description and the research
 - **Strict Formatting:** Adhere strictly to the section structure and Markdown heading levels specified.
 `;
 
+// Define Input Type based on Schema
+const prdInputSchemaShape = {
+  productDescription: z.string().min(10, { message: "Product description must be at least 10 characters." }).describe("Description of the product to create a PRD for")
+};
+
 /**
- * Generate a PRD for a product based on a description
+ * Generate a PRD for a product based on a description.
+ * This function now acts as the executor for the 'generate-prd' tool.
+ * @param params The validated tool parameters.
+ * @param config OpenRouter configuration.
+ * @returns A Promise resolving to a CallToolResult object.
  */
-export async function generatePRD(
-  productDescription: string,
+export const generatePRD: ToolExecutor = async (
+  params: Record<string, any>, // Match ToolExecutor signature
   config: OpenRouterConfig
-): Promise<{ content: { type: "text"; text: string }[] }> {
+): Promise<CallToolResult> => { // Return CallToolResult
+  const productDescription = params.productDescription as string; // Assert type after validation
   try {
     await initDirectories();
-    
+
     // Generate a filename for storing the PRD
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const sanitizedName = productDescription.substring(0, 30).toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -168,24 +181,32 @@ export async function generatePRD(
     
     // Save the result
     await fs.writeFile(filePath, formattedResult, 'utf8');
-    
+    logger.info(`PRD generated and saved to ${filePath}`);
+
+    // Return success result
     return {
-      content: [
-        {
-          type: "text",
-          text: formattedResult
-        }
-      ]
+      content: [{ type: "text", text: formattedResult }],
+      isError: false
     };
   } catch (error) {
-    logger.error({ err: error }, 'PRD Generator Error');
+    logger.error({ err: error, params }, 'PRD Generator Error');
+    // Return error result
     return {
-      content: [
-        {
-          type: "text",
-          text: `Error generating PRD: ${error instanceof Error ? error.message : String(error)}`
-        }
-      ]
+      content: [{ type: "text", text: `Error generating PRD: ${error instanceof Error ? error.message : String(error)}` }],
+      isError: true
     };
   }
-}
+};
+
+// --- Tool Registration ---
+
+// Tool definition for the PRD generator tool
+const prdToolDefinition: ToolDefinition = {
+  name: "generate-prd",
+  description: "Creates comprehensive product requirements documents based on a product description and research.",
+  inputSchema: prdInputSchemaShape, // Use the raw shape
+  executor: generatePRD // Reference the adapted function
+};
+
+// Register the tool with the central registry
+registerTool(prdToolDefinition);

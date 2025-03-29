@@ -1,9 +1,12 @@
 import fs from 'fs-extra';
 import path from 'path';
+import { z } from 'zod'; // Added Zod import
+import { CallToolResult } from '@modelcontextprotocol/sdk/types.js'; // Added MCP type import
 import { OpenRouterConfig } from '../../types/workflow.js';
 import { processWithSequentialThinking } from '../sequential-thinking.js';
 import { performResearchQuery } from '../../utils/researchHelper.js';
 import logger from '../../logger.js';
+import { registerTool, ToolDefinition, ToolExecutor } from '../../services/routing/toolRegistry.js'; // Added registry imports
 
 // Ensure directories exist
 const TASK_LIST_DIR = path.join(process.cwd(), 'workflow-agent-files', 'task-list-generator');
@@ -93,17 +96,27 @@ Generate a hierarchical development task list based on the user's product descri
 - **Strict Formatting:** Use \`##\` for Phases, \`###\` for Epics (optional), nested \`-\` for tasks/sub-tasks. Use the exact field names (ID, Title, etc.) in bold, followed by \`:\`.
 `;
 
+// Define Input Type based on Schema
+const taskListInputSchemaShape = {
+  productDescription: z.string().min(10, { message: "Product description must be at least 10 characters." }).describe("Description of the product"),
+  userStories: z.string().min(20, { message: "User stories must be provided and be at least 20 characters." }).describe("User stories (in Markdown format) to use for task list generation")
+};
+
 /**
- * Generate a task list based on product description and user stories
+ * Generate a task list based on product description and user stories.
+ * This function now acts as the executor for the 'generate-task-list' tool.
+ * @param params The validated tool parameters.
+ * @param config OpenRouter configuration.
+ * @returns A Promise resolving to a CallToolResult object.
  */
-export async function generateTaskList(
-  productDescription: string,
-  userStories: string,
+export const generateTaskList: ToolExecutor = async (
+  params: Record<string, any>, // Match ToolExecutor signature
   config: OpenRouterConfig
-): Promise<{ content: { type: "text"; text: string }[] }> {
+): Promise<CallToolResult> => { // Return CallToolResult
+  const { productDescription, userStories } = params as { productDescription: string; userStories: string }; // Assert types after validation
   try {
     await initDirectories();
-    
+
     // Generate a filename for storing the task list
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const sanitizedName = productDescription.substring(0, 30).toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -166,24 +179,32 @@ export async function generateTaskList(
     
     // Save the result
     await fs.writeFile(filePath, formattedResult, 'utf8');
-    
+    logger.info(`Task list generated and saved to ${filePath}`);
+
+    // Return success result
     return {
-      content: [
-        {
-          type: "text",
-          text: formattedResult
-        }
-      ]
+      content: [{ type: "text", text: formattedResult }],
+      isError: false
     };
   } catch (error) {
-    logger.error({ err: error }, 'Task List Generator Error');
+    logger.error({ err: error, params }, 'Task List Generator Error');
+    // Return error result
     return {
-      content: [
-        {
-          type: "text",
-          text: `Error generating task list: ${error instanceof Error ? error.message : String(error)}`
-        }
-      ]
+      content: [{ type: "text", text: `Error generating task list: ${error instanceof Error ? error.message : String(error)}` }],
+      isError: true
     };
   }
-}
+};
+
+// --- Tool Registration ---
+
+// Tool definition for the task list generator tool
+const taskListToolDefinition: ToolDefinition = {
+  name: "generate-task-list",
+  description: "Creates structured development task lists with dependencies based on product description, user stories, and research.",
+  inputSchema: taskListInputSchemaShape, // Use the raw shape
+  executor: generateTaskList // Reference the adapted function
+};
+
+// Register the tool with the central registry
+registerTool(taskListToolDefinition);

@@ -5,17 +5,23 @@ import { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.j
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import logger from "./logger.js";
 
-// Import tool implementations
-import { generateFullstackStarterKit } from "./tools/fullstack-starter-kit-generator/index.js";
-import { performResearch } from "./tools/research-manager/index.js";
-import { generateRules } from "./tools/rules-generator/index.js";
-import { generatePRD } from "./tools/prd-generator/index.js";
-import { generateUserStories } from "./tools/user-stories-generator/index.js";
-import { generateTaskList } from "./tools/task-list-generator/index.js";
-import { OpenRouterConfig } from "./types/workflow.js";
+// Import all tool modules to trigger registration
+import '../tools/index.js';
+// Also import the request processor to register the process-request tool
+import './services/request-processor/index.js';
 
-// Import the request processing services
-import { processUserRequest, executeProcessedRequest, ProcessedRequest } from "./services/request-processor/index.js";
+// Import registry functions
+import { getAllTools, executeTool } from './services/routing/toolRegistry.js';
+
+// Import necessary types
+import { OpenRouterConfig } from "./types/workflow.js";
+import { ProcessedRequest } from "./services/request-processor/index.js"; // Keep this type if needed by process-request tool logic
+// Remove direct executor imports as they are handled by the registry
+// import { generateFullstackStarterKit } from "./tools/fullstack-starter-kit-generator/index.js";
+// import { generateRules } from "./tools/rules-generator/index.js";
+// import { generatePRD } from "./tools/prd-generator/index.js";
+// import { generateUserStories } from "./tools/user-stories-generator/index.js";
+// import { generateTaskList } from "./tools/task-list-generator/index.js";
 
 // Load environment variables
 dotenv.config();
@@ -60,22 +66,11 @@ All generated artifacts are stored in structured directories.
   // Note: McpServer doesn't expose direct error handling hook
   // Errors will be caught in the main index.ts
 
-  // Register the research tool
-  server.tool(
-    "research",
-    "Performs deep research on topics using Perplexity Sonar via OpenRouter",
-    {
-      query: z.string().describe("The research query or topic to investigate")
-    },
-    async ({ query }): Promise<CallToolResult> => {
-      const result = await performResearch(query, config);
-      return {
-        content: result.content
-      };
-    }
-  );
+  // Tool registration will now be handled dynamically below.
 
-  // Register the rules generator tool
+  // --- REMOVE ALL server.tool(...) blocks from here down ---
+  /*
+  // Example of removed block:
   server.tool(
     "generate-rules",
     "Creates project-specific development rules based on product description",
@@ -218,10 +213,7 @@ All generated artifacts are stored in structured directories.
             isError: result.isError
           };
         },
-        "research-manager": async (params) => {
-          const query = params.query || params.topic || request;
-          return performResearch(query, config);
-        },
+        // "research-manager" execution is now handled by executeTool in toolRegistry
         "rules-generator": async (params) => {
           // Safe handling of rule categories
           const categories = typeof params.ruleCategories === 'string' ? 
@@ -265,6 +257,37 @@ All generated artifacts are stored in structured directories.
       };
     }
   );
+  */
+  // --- End of removed blocks ---
+
+
+  // Register all tools found in the registry
+  logger.info('Registering tools from Tool Registry...');
+  const allToolDefinitions = getAllTools();
+
+  if (allToolDefinitions.length === 0) {
+     logger.warn('No tools found in the registry. Ensure tools register themselves via imports.');
+     // Consider if the server should start without tools or throw an error
+  }
+
+  for (const definition of allToolDefinitions) {
+    logger.debug(`Registering tool "${definition.name}" with MCP server.`);
+    server.tool(
+      definition.name,
+      definition.description,
+      // Pass the raw shape directly, as expected by server.tool
+      definition.inputSchema,
+      // The handler now simply calls the central executeTool function
+      async (params: Record<string, any>): Promise<CallToolResult> => {
+        // 'config' is accessible from the outer scope
+        return executeTool(definition.name, params, config);
+      }
+    );
+  }
+  logger.info(`Registered ${allToolDefinitions.length} tools dynamically with MCP server.`);
+
+  // The "process-request" tool is now also registered dynamically via its module import.
+  // The hardcoded registration block has been removed.
 
   return server;
 }

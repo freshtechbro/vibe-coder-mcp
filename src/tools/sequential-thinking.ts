@@ -1,11 +1,13 @@
 import axios, { AxiosError } from 'axios';
 import { OpenRouterConfig, LLMRequest, LLMResponse, Message } from '../types/workflow.js';
 import logger from '../logger.js';
+import { sequentialThoughtSchema, SequentialThought as ZodSequentialThought } from '../types/sequentialThought.js';
+import { ApiError, ParsingError, ValidationError, AppError } from '../utils/errors.js'; // Import custom errors
 
 /**
- * Interface for a sequential thought
+ * Interface for a sequential thought (Keep for internal use if needed, but Zod type is primary)
  */
-export interface SequentialThought {
+interface SequentialThought { // Renamed to avoid conflict if Zod type is named the same
   thought: string;
   next_thought_needed: boolean;
   thought_number: number;
@@ -85,23 +87,59 @@ export async function processWithSequentialThinking(
 
   // Process thoughts sequentially until next_thought_needed is false
   while (currentThought.next_thought_needed) {
-    // Build the context with all previous thoughts
     const thoughtContext = getThoughtContext();
-    
-    // Create the full prompt
-    const prompt = thoughtContext 
+    const initialPrompt = thoughtContext
       ? `${thoughtContext}\n\nTask: ${userPrompt}\n\nContinue with the next thought:`
       : `Task: ${userPrompt}\n\nProvide your first thought:`;
-    
-    // Log the current state (useful for debugging)
+
     logger.debug(`Processing thought ${currentThought.thought_number} (total estimate: ${currentThought.total_thoughts})...`);
-    
-    // Get the next thought from the AI
-    const nextThought = await getNextThought(prompt, fullSystemPrompt, config);
-    
-    // Add the thought to our history
-    thoughts.push(nextThought);
-    currentThought = nextThought;
+
+    const maxRetries = 3; // 1 initial attempt + 2 retries
+    let lastError: Error | null = null;
+    let currentPromptForLLM = initialPrompt; // Use a mutable variable for the prompt
+    let nextThought: ZodSequentialThought | null = null; // Initialize as null, use Zod type
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Get the next thought from the AI using the potentially modified prompt
+        nextThought = await getNextThought(currentPromptForLLM, fullSystemPrompt, config);
+        lastError = null; // Clear error on success
+        logger.debug(`Attempt ${attempt} to get thought ${currentThought.thought_number} succeeded.`);
+        break; // Exit retry loop on success
+      } catch (error) {
+        lastError = error as Error;
+        logger.warn({ err: lastError, attempt, maxRetries }, `Attempt ${attempt} to get thought ${currentThought.thought_number} failed.`);
+
+        if (attempt === maxRetries) {
+          logger.error(`All ${maxRetries} attempts failed for thought ${currentThought.thought_number}.`);
+          // Error will be thrown after the loop
+        } else {
+          // Prepare prompt for retry, including the error message
+          currentPromptForLLM = `${initialPrompt}\n\nYour previous attempt (attempt ${attempt}) failed with this error: ${lastError.message}\nPlease carefully review the required JSON format and schema described in the system prompt, then provide a valid JSON object.\nRetry thought generation:`;
+          logger.info(`Retrying thought generation (attempt ${attempt + 1})...`);
+          // Optional delay could be added here:
+          // await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+      }
+    }
+
+    // If all retries failed, throw the last error encountered
+    if (lastError !== null) {
+      throw lastError;
+    }
+
+    // Ensure nextThought is not null before proceeding (should be guaranteed if no error was thrown)
+    if (!nextThought) {
+       // This state should not be reachable if the logic is correct
+       logger.error("Internal error: nextThought is null after retry loop without throwing an error.");
+       throw new Error("Internal error: Failed to retrieve thought after retries.");
+    }
+
+    // Add the successfully retrieved thought to our history
+    // Need to cast nextThought back to the internal SequentialThought interface if it's different
+    // Or adjust the 'thoughts' array type to ZodSequentialThought
+    thoughts.push(nextThought as SequentialThought); // Assuming internal interface is compatible enough for history
+    currentThought = nextThought as SequentialThought; // Update currentThought
   }
   
   // Extract the solution from the final thought
@@ -115,8 +153,10 @@ async function getNextThought(
   prompt: string,
   systemPrompt: string,
   config: OpenRouterConfig
-): Promise<SequentialThought> {
-  try {
+): Promise<ZodSequentialThought> {
+  // This outer try/catch remains primarily for the retry logic in processWithSequentialThinking
+  // The actual error classification happens in the inner try/catch
+  try { // New inner try block
     const response = await axios.post(
       `${config.baseUrl}/chat/completions`,
       {
@@ -147,41 +187,74 @@ async function getNextThought(
     // Extract the response
     if (response.data.choices && response.data.choices.length > 0) {
       const content = response.data.choices[0].message.content;
-      
+      let parsedContent: any;
+
       try {
-        // Parse the JSON response
-        const thought = JSON.parse(content) as SequentialThought;
-        
-        // Validate required fields
-        if (
-          typeof thought.thought !== 'string' ||
-          typeof thought.next_thought_needed !== 'boolean' ||
-          typeof thought.thought_number !== 'number' ||
-          typeof thought.total_thoughts !== 'number'
-        ) {
-          throw new Error('Invalid thought format - missing required fields');
-        }
-        
-        return thought;
-      } catch (parseError) {
-        logger.error({ err: parseError }, "Failed to parse thought");
-        // Create a fallback thought if parsing fails
-        return {
-          thought: typeof content === 'string' ? content : String(content),
-          next_thought_needed: false,
-          thought_number: 1,
-          total_thoughts: 1
-        };
+        // First, try parsing the raw content as JSON
+        parsedContent = JSON.parse(content);
+      } catch (jsonError) {
+        logger.error({ err: jsonError, rawContent: content }, "LLM output was not valid JSON.");
+        // Throw specific ParsingError
+        throw new ParsingError(
+          `LLM output was not valid JSON`,
+          { rawContent: content },
+          jsonError instanceof Error ? jsonError : undefined
+        );
       }
+
+      // If JSON parsing succeeded, validate with Zod schema
+      const validationResult = sequentialThoughtSchema.safeParse(parsedContent);
+
+      if (validationResult.success) {
+        logger.debug('Sequential thought successfully parsed and validated.');
+        // Return the validated data (type is inferred by Zod)
+        return validationResult.data;
+      } else {
+        // Log detailed validation errors
+        logger.error({ errors: validationResult.error.issues, rawContent: content }, 'Sequential thought schema validation failed');
+        // Throw specific ValidationError
+        throw new ValidationError(
+          `Sequential thought validation failed: ${validationResult.error.message}`,
+          validationResult.error.issues,
+          { rawContent: content }
+        );
+      }
+
     } else {
-      throw new Error("No response received from model");
+       logger.warn({ responseData: response.data }, "No choices found in LLM response for sequential thought.");
+       // Throw specific ParsingError
+       throw new ParsingError(
+         "No response choices received from model for sequential thought",
+         { responseData: response.data }
+       );
     }
-  } catch (error) {
-    logger.error({ err: error }, "API Error in sequential thinking");
-    if (axios.isAxiosError(error)) {
-      const axiosError = error as AxiosError;
-      throw new Error(`API error: ${axiosError.response?.status} - ${JSON.stringify(axiosError.response?.data || {})}`);
-    }
-    throw new Error(`Unknown error: ${String(error)}`);
+  } catch (error) { // New inner catch block
+    // Handle Axios errors specifically first
+     if (axios.isAxiosError(error)) {
+        const axiosError = error as AxiosError;
+        const status = axiosError.response?.status;
+        const responseData = axiosError.response?.data;
+        const apiMessage = `OpenRouter API Error: Status ${status || 'N/A'}. ${axiosError.message}`;
+        logger.error({ err: axiosError, status, responseData }, apiMessage);
+        // Throw specific ApiError, propagating original error
+        throw new ApiError(
+          apiMessage,
+          status,
+          { model: config.geminiModel, responseData },
+          axiosError
+        );
+     }
+     // Re-throw other AppErrors (like ParsingError, ValidationError) caught within the inner try
+     else if (error instanceof AppError) {
+         throw error; // Pass custom errors up to the retry logic
+     }
+     // Wrap unknown errors
+     else if (error instanceof Error) {
+          logger.error({ err: error }, "Unknown error during getNextThought API call/processing");
+          throw new AppError(`Failed to get next thought: ${error.message}`, undefined, error);
+     } else {
+          logger.error({ errorData: error }, "Unknown non-error thrown during getNextThought");
+          throw new AppError("Unknown failure while getting next thought.");
+     }
   }
 }

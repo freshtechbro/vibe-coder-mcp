@@ -62,8 +62,12 @@ describe('Task List Generator', () => {
   });
 
   it('should perform research (Perplexity) then generation (Gemini) with research context', async () => {
-    // Call the function under test
-    await generateTaskList(mockProductDescription, mockUserStories, mockConfig);
+    // Call the function under test with params object
+    const params = {
+      productDescription: mockProductDescription,
+      userStories: mockUserStories
+    };
+    await generateTaskList(params, mockConfig);
     
     // Verify Perplexity research was called 3 times (for 3 different queries)
     expect(researchHelper.performResearchQuery).toHaveBeenCalledTimes(3);
@@ -99,7 +103,11 @@ describe('Task List Generator', () => {
 
   it('should include product description in the research queries', async () => {
     const customProduct = "E-commerce website";
-    await generateTaskList(customProduct, mockUserStories, mockConfig);
+    const params = {
+      productDescription: customProduct,
+      userStories: mockUserStories
+    };
+    await generateTaskList(params, mockConfig);
     
     // Verify the first and third research queries include the product description
     const firstQuery = vi.mocked(researchHelper.performResearchQuery).mock.calls[0][0];
@@ -117,7 +125,11 @@ describe('Task List Generator', () => {
       { status: 'fulfilled', value: mockResearchResults[2] }
     ]);
     
-    await generateTaskList(mockProductDescription, mockUserStories, mockConfig);
+    const params = {
+      productDescription: mockProductDescription,
+      userStories: mockUserStories
+    };
+    await generateTaskList(params, mockConfig);
     
     // Verify Gemini generation was still called
     expect(sequentialThinking.processWithSequentialThinking).toHaveBeenCalledTimes(1);
@@ -128,5 +140,66 @@ describe('Task List Generator', () => {
     
     // Verify results are still written to file
     expect(fs.writeFile).toHaveBeenCalledTimes(1);
+  });
+
+  // --- Snapshot Test ---
+  it('should generate task list content matching snapshot', async () => {
+    const productDescription = "A project tracking app";
+    const userStories = `
+US-101: As a user, I want to create task items
+US-102: As a user, I want to assign tasks to team members
+US-103: As a user, I want to track task progress
+`;
+    const consistentMockTaskList = `
+## Phase: Project Setup
+- **ID:** T-101
+  **Title:** Initialize project repository
+  *(Description):* Set up version control and project structure
+  *(User Story):* US-101, US-102, US-103
+  *(Priority):* High
+  *(Dependencies):* None
+  *(Est. Effort):* Small
+
+## Phase: Backend Development
+- **ID:** T-201
+  **Title:** Create task model
+  *(Description):* Define data structure for tasks
+  *(User Story):* US-101
+  *(Priority):* High
+  *(Dependencies):* T-101
+  *(Est. Effort):* Medium
+`;
+
+    // Variable to capture the file path argument directly
+    let capturedFilePath = '';
+    
+    // Reset mocks with consistent values for snapshot stability
+    vi.mocked(researchHelper.performResearchQuery).mockResolvedValue("Consistent mock research.");
+    vi.mocked(sequentialThinking.processWithSequentialThinking).mockResolvedValue(consistentMockTaskList);
+    
+    // Override writeFile to capture the path directly without explicit typing
+    vi.mocked(fs.writeFile).mockImplementation((path, content, encoding) => {
+      capturedFilePath = String(path);
+      return Promise.resolve();
+    });
+    
+    // Call the function under test with params object
+    const params = { 
+      productDescription,
+      userStories
+    };
+    const result = await generateTaskList(params, mockConfig);
+    
+    // Snapshot assertion for the content
+    expect(result).toMatchSnapshot('Task List Generator Output');
+    
+    // Verify file write was called
+    expect(fs.writeFile).toHaveBeenCalledTimes(1);
+    
+    // Verify file path was captured and contains expected components
+    expect(capturedFilePath).toBeTruthy();
+    expect(typeof capturedFilePath).toBe('string');
+    expect(capturedFilePath.indexOf('task-list-generator')).toBeGreaterThan(-1);
+    expect(capturedFilePath.indexOf('.md')).toBeGreaterThan(-1);
   });
 });

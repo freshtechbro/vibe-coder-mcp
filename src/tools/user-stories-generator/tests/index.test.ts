@@ -59,11 +59,13 @@ describe('User Stories Generator', () => {
   });
 
   it('should perform research (Perplexity) then generation (Gemini) with research context', async () => {
-    // Test input
-    const productDescription = "A test product description";
+    // Test input using params object
+    const params = {
+      productDescription: "A test product description"
+    };
     
-    // Call the function under test
-    await generateUserStories(productDescription, mockConfig);
+    // Call the function under test with params
+    await generateUserStories(params, mockConfig);
     
     // Verify Perplexity research was called 3 times (for 3 different queries)
     expect(researchHelper.performResearchQuery).toHaveBeenCalledTimes(3);
@@ -80,7 +82,7 @@ describe('User Stories Generator', () => {
     
     // Get the generation prompt and verify it contains both product description and research context
     const generationPrompt = vi.mocked(sequentialThinking.processWithSequentialThinking).mock.calls[0][0];
-    expect(generationPrompt).toContain(productDescription);
+    expect(generationPrompt).toContain(params.productDescription);
     expect(generationPrompt).toContain("Pre-Generation Research Context");
     
     // Verify the config was correctly passed to processWithSequentialThinking
@@ -104,8 +106,10 @@ describe('User Stories Generator', () => {
       { status: 'fulfilled', value: mockResearchResults[2] }
     ]);
     
-    const productDescription = "A test product description";
-    await generateUserStories(productDescription, mockConfig);
+    const params = {
+      productDescription: "A test product description"
+    };
+    await generateUserStories(params, mockConfig);
     
     // Verify Gemini generation was still called
     expect(sequentialThinking.processWithSequentialThinking).toHaveBeenCalledTimes(1);
@@ -116,5 +120,57 @@ describe('User Stories Generator', () => {
     
     // Verify results are still written to file
     expect(fs.writeFile).toHaveBeenCalledTimes(1);
+  });
+
+  // --- Snapshot Test ---
+  it('should generate user stories content matching snapshot', async () => {
+    const productDescription = "A ticketing application for event management";
+    const consistentMockStories = `# User Stories: Event Ticketing App
+
+## Epic: User Registration
+### User Story: Account Creation
+**ID:** US-101
+**Title:** Create User Account
+
+**Story:**
+> As a **new event attendee**,
+> I want to **create a personal account**
+> So that **I can purchase tickets and track my orders**.
+
+**Acceptance Criteria:**
+* GIVEN I am on the registration page WHEN I enter valid details THEN my account is created successfully.
+* GIVEN I am registering WHEN I enter a password THEN it is validated for minimum security requirements.
+
+**Priority:** High
+**Dependencies:** None`;
+
+    // Variable to capture the file path argument directly
+    let capturedFilePath = '';
+    
+    // Reset mocks with consistent values for snapshot stability
+    vi.mocked(researchHelper.performResearchQuery).mockResolvedValue("Consistent mock research.");
+    vi.mocked(sequentialThinking.processWithSequentialThinking).mockResolvedValue(consistentMockStories);
+    
+    // Override writeFile to capture the path directly without explicit typing
+    vi.mocked(fs.writeFile).mockImplementation((path, content, encoding) => {
+      capturedFilePath = String(path);
+      return Promise.resolve();
+    });
+    
+    // Call the function under test with params object
+    const params = { productDescription };
+    const result = await generateUserStories(params, mockConfig);
+    
+    // Snapshot assertion for the content
+    expect(result).toMatchSnapshot('User Stories Generator Output');
+    
+    // Verify file write was called
+    expect(fs.writeFile).toHaveBeenCalledTimes(1);
+    
+    // Verify file path was captured and contains expected components
+    expect(capturedFilePath).toBeTruthy();
+    expect(typeof capturedFilePath).toBe('string');
+    expect(capturedFilePath.indexOf('user-stories-generator')).toBeGreaterThan(-1);
+    expect(capturedFilePath.indexOf('.md')).toBeGreaterThan(-1);
   });
 });

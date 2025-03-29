@@ -1,8 +1,9 @@
-import { matchRequest, extractParameters } from "../matching-service/index.js";
-import { detectIntent, extractContextParameters } from "../intent-service/index.js";
+// Removed imports for matchRequest, extractParameters, detectIntent, and extractContextParameters
 import { MatchResult } from "../../types/tools.js";
 import { processWithSequentialThinking } from "../../tools/sequential-thinking.js";
 import { OpenRouterConfig } from "../../types/workflow.js";
+import { findBestSemanticMatch } from "../routing/semanticMatcher.js";
+import logger from "../../logger.js";
 
 // Confidence thresholds
 const HIGH_CONFIDENCE = 0.8;
@@ -14,15 +15,15 @@ const LOW_CONFIDENCE = 0.4;
  */
 export interface EnhancedMatchResult extends MatchResult {
   parameters: Record<string, string>;
-  matchMethod: "rule" | "intent" | "sequential";
+  matchMethod: "rule" | "intent" | "semantic" | "sequential"; // Added "semantic"
   requiresConfirmation: boolean;
 }
 
 /**
  * Main hybrid matching function that implements the fallback flow
- * 1. Try rule-based matching
- * 2. Try intent-based matching
- * 3. Fall back to sequential thinking
+ * 1. Try Semantic Matching
+ * 2. Fall back to Sequential Thinking
+ * 3. Default Fallback
  *
  * @param request The user request to match
  * @param config OpenRouter configuration for sequential thinking
@@ -32,57 +33,40 @@ export async function hybridMatch(
   request: string,
   config: OpenRouterConfig
 ): Promise<EnhancedMatchResult> {
-  let matchResult: MatchResult | null;
+  let matchResult: MatchResult | null = null;
   let parameters: Record<string, string> = {};
-  let matchMethod: "rule" | "intent" | "sequential" = "sequential"; 
-  let requiresConfirmation = false;
+  // Default to sequential, semantic will override if successful
+  let matchMethod: "semantic" | "sequential" = "sequential";
+  let requiresConfirmation = true; // Default to true, semantic match might override
 
-  // Step 1: Try rule-based matching first (highest priority)
-  matchResult = matchRequest(request);
-  
-  if (matchResult && matchResult.confidence >= MEDIUM_CONFIDENCE) {
-    // Successfully matched via rules
-    matchMethod = "rule";
-    
-    // Extract parameters if we have a matched pattern
-    if (matchResult.matchedPattern && matchResult.matchedPattern !== "description_match") {
-      parameters = extractParameters(request, matchResult.matchedPattern);
-    }
-    
-    // Only require confirmation for low confidence matches
-    requiresConfirmation = matchResult.confidence < HIGH_CONFIDENCE;
-    
+  // Step 1: Try Semantic Matching
+  logger.debug('Trying semantic matching...');
+  const semanticMatchResult = await findBestSemanticMatch(request);
+
+  if (semanticMatchResult) {
+    // Successfully matched via semantic similarity
+    matchMethod = "semantic";
+    matchResult = semanticMatchResult; // Assign the successful match
+
+    // Parameter extraction removed for now - can be added back later
+    parameters = {}; // Default to empty parameters
+
+    // Require confirmation for lower confidence semantic matches
+    requiresConfirmation = semanticMatchResult.confidence < HIGH_CONFIDENCE;
+
+    logger.info(`Match found via semantic search: ${matchResult.toolName} (Confidence: ${matchResult.confidence.toFixed(3)})`);
     return {
-      ...matchResult,
+      ...matchResult, // No need for type assertion if matchResult is correctly typed now
       parameters,
       matchMethod,
       requiresConfirmation
     };
+  } else {
+     logger.debug('Semantic matching did not yield a confident result. Falling back to sequential thinking...');
   }
   
-  // Step 2: Try intent-based matching as fallback
-  const intentResult = detectIntent(request);
-  
-  if (intentResult && intentResult.confidence >= LOW_CONFIDENCE) {
-    // Successfully matched via intent
-    matchMethod = "intent";
-    matchResult = intentResult;
-    
-    // Extract parameters using context-based extraction
-    parameters = extractContextParameters(request);
-    
-    // Intent-based matches generally require confirmation unless high confidence
-    requiresConfirmation = intentResult.confidence < HIGH_CONFIDENCE;
-    
-    return {
-      ...intentResult,
-      parameters,
-      matchMethod,
-      requiresConfirmation
-    };
-  }
-  
-  // Step 3: Fall back to sequential thinking for ambiguous requests
+  // Step 2: Fall back to sequential thinking for ambiguous requests (Only if semantic match failed)
+  // Note: matchMethod remains 'sequential' if semantic match failed
   try {
     // Use sequential thinking to determine the most likely tool
     const sequentialResult = await performSequentialThinking(
@@ -109,8 +93,8 @@ export async function hybridMatch(
       // Always require confirmation for sequential matches
       requiresConfirmation = true;
       
-      // Extract parameters using context
-      parameters = extractContextParameters(request);
+      // Parameter extraction removed for now - can be added back later
+      parameters = {}; // Default to empty parameters
       
       return {
         ...matchResult,
@@ -165,15 +149,9 @@ Analyze the request and determine which tool is most appropriate. Reply with jus
  */
 export function getMatchExplanation(match: EnhancedMatchResult): string {
   switch (match.matchMethod) {
-    case "rule":
-      if (match.matchedPattern === "description_match") {
-        return `I chose the ${match.toolName} because keywords in your request matched its description.`;
-      } else {
-        return `I chose the ${match.toolName} because your request matched the pattern: "${match.matchedPattern}"`;
-      }
-      
-    case "intent":
-      return `I chose the ${match.toolName} based on the intent of your request. I'm ${Math.round(match.confidence * 100)}% confident this is what you meant.`;
+    // Removed "rule" and "intent" cases
+    case "semantic":
+      return `I chose the ${match.toolName} because your request seems semantically similar to its purpose. I'm ${Math.round(match.confidence * 100)}% confident.`;
       
     case "sequential":
       if (match.matchedPattern === "fallback") {

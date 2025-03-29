@@ -1,9 +1,13 @@
 import fs from 'fs-extra';
 import path from 'path';
-import { OpenRouterConfig, RulesGeneratorResult } from '../../types/workflow.js';
+import { z } from 'zod'; // Added Zod import
+import { CallToolResult } from '@modelcontextprotocol/sdk/types.js'; // Added MCP type import
+import { OpenRouterConfig } from '../../types/workflow.js';
+// Removed RulesGeneratorResult as CallToolResult is used now
 import { processWithSequentialThinking } from '../sequential-thinking.js';
 import { performResearchQuery } from '../../utils/researchHelper.js';
 import logger from '../../logger.js';
+import { registerTool, ToolDefinition, ToolExecutor } from '../../services/routing/toolRegistry.js'; // Added registry imports
 
 // Ensure directories exist
 const RULES_DIR = path.join(process.cwd(), 'workflow-agent-files', 'rules-generator');
@@ -91,29 +95,40 @@ Generate a detailed set of development rules based on the user's product descrip
 - **Strict Formatting:** Use \`##\` for categories and \`###\` for individual rule titles. Use the exact field names (Description, Rationale, etc.) in bold. Use code blocks with language hints for examples.
 `;
 
+// Define Input Type based on Schema
+const rulesInputSchemaShape = {
+  productDescription: z.string().min(10, { message: "Product description must be at least 10 characters." }).describe("Description of the product being developed"),
+  userStories: z.string().optional().describe("Optional user stories to inform the rules"),
+  ruleCategories: z.array(z.string()).optional().describe("Optional categories of rules to generate (e.g., 'Code Style', 'Security')")
+};
+// Remove inferred type, as ToolExecutor expects Record<string, any>
+// type RulesInput = z.infer<typeof z.object(rulesInputSchemaShape)>;
+
 /**
- * Generate development rules based on a product description
+ * Generate development rules based on a product description.
+ * This function now acts as the executor for the 'generate-rules' tool.
+ * @param params The validated tool parameters.
+ * @param config OpenRouter configuration.
+ * @returns A Promise resolving to a CallToolResult object.
  */
-export async function generateRules(
-  productDescription: string,
-  userStories?: string,
-  ruleCategories?: string[],
-  config?: OpenRouterConfig
-): Promise<{ content: { type: "text"; text: string }[] }> {
+export const generateRules: ToolExecutor = async (
+  params: Record<string, any>, // Match ToolExecutor signature
+  config: OpenRouterConfig
+): Promise<CallToolResult> => {
+  // Access properties via params, asserting types as they've been validated by executeTool
+  const productDescription = params.productDescription as string;
+  const userStories = params.userStories as string | undefined;
+  const ruleCategories = params.ruleCategories as string[] | undefined;
   try {
     await initDirectories();
-    
+
     // Generate a filename for storing the rules
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const sanitizedName = productDescription.substring(0, 30).toLowerCase().replace(/[^a-z0-9]+/g, '-');
     const filename = `${timestamp}-${sanitizedName}-rules.md`;
     const filePath = path.join(RULES_DIR, filename);
     
-    // Validate config
-    if (!config) {
-      throw new Error("OpenRouter configuration is required");
-    }
-    
+    // Config is now guaranteed by the caller (executeTool)
     // Perform pre-generation research using Perplexity
     logger.info({ inputs: { productDescription: productDescription.substring(0, 50), userStories: userStories?.substring(0, 50), ruleCategories } }, "Rules Generator: Starting pre-generation research...");
     
@@ -174,20 +189,21 @@ export async function generateRules(
     if (userStories) {
       mainGenerationPrompt += `\n\nBased on these user stories:\n\n${userStories}`;
     }
-    
+
     if (ruleCategories && ruleCategories.length > 0) {
-      mainGenerationPrompt += `\n\nFocus on these rule categories:\n${ruleCategories.map(c => `- ${c}`).join('\n')}`;
+      // Add explicit type 'string' for c
+      mainGenerationPrompt += `\n\nFocus on these rule categories:\n${ruleCategories.map((c: string) => `- ${c}`).join('\n')}`;
     }
-    
+
     // Add research context to the prompt
     mainGenerationPrompt += `\n\n${researchContext}`;
-    
+
     // Process the rules generation with sequential thinking using Gemini
     logger.info("Rules Generator: Starting main generation using Gemini...");
-    
+
     const rulesResult = await processWithSequentialThinking(
-      mainGenerationPrompt, 
-      config, // Contains config.geminiModel which processWithSequentialThinking uses
+      mainGenerationPrompt,
+      config, // Pass the config object directly
       RULES_SYSTEM_PROMPT
     );
     
@@ -199,24 +215,32 @@ export async function generateRules(
     
     // Save the result
     await fs.writeFile(filePath, formattedResult, 'utf8');
-    
+    logger.info(`Rules generated and saved to ${filePath}`);
+
+    // Return success result
     return {
-      content: [
-        {
-          type: "text",
-          text: formattedResult
-        }
-      ]
+      content: [{ type: "text", text: formattedResult }],
+      isError: false
     };
   } catch (error) {
-    logger.error({ err: error }, 'Rules Generator Error');
+    logger.error({ err: error, params }, 'Rules Generator Error');
+    // Return error result
     return {
-      content: [
-        {
-          type: "text",
-          text: `Error generating rules: ${error instanceof Error ? error.message : String(error)}`
-        }
-      ]
+      content: [{ type: "text", text: `Error generating rules: ${error instanceof Error ? error.message : String(error)}` }],
+      isError: true
     };
   }
-}
+};
+
+// --- Tool Registration ---
+
+// Tool definition for the rules generator tool
+const rulesToolDefinition: ToolDefinition = {
+  name: "generate-rules",
+  description: "Creates project-specific development rules based on product description, user stories, and research.",
+  inputSchema: rulesInputSchemaShape, // Use the raw shape
+  executor: generateRules // Reference the adapted function
+};
+
+// Register the tool with the central registry
+registerTool(rulesToolDefinition);

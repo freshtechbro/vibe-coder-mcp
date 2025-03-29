@@ -1,9 +1,12 @@
 import fs from 'fs-extra';
 import path from 'path';
+import { z } from 'zod'; // Added Zod import
+import { CallToolResult } from '@modelcontextprotocol/sdk/types.js'; // Added MCP type import
 import { OpenRouterConfig } from '../../types/workflow.js';
 import { processWithSequentialThinking } from '../sequential-thinking.js';
 import { performResearchQuery } from '../../utils/researchHelper.js';
 import logger from '../../logger.js';
+import { registerTool, ToolDefinition, ToolExecutor } from '../../services/routing/toolRegistry.js'; // Added registry imports
 
 // Ensure directories exist
 const USER_STORIES_DIR = path.join(process.cwd(), 'workflow-agent-files', 'user-stories-generator');
@@ -77,16 +80,26 @@ Generate detailed user stories based on the user's product description and the p
 - **Strict Formatting:** Use \`##\` for Epics, \`###\` for Stories. Use the exact field names (ID, Title, Story, Acceptance Criteria, etc.) in bold. Use Markdown blockquotes for the As a/I want/So that structure.
 `;
 
+// Define Input Type based on Schema
+const userStoriesInputSchemaShape = {
+  productDescription: z.string().min(10, { message: "Product description must be at least 10 characters." }).describe("Description of the product to create user stories for")
+};
+
 /**
- * Generate user stories based on a product description
+ * Generate user stories based on a product description.
+ * This function now acts as the executor for the 'generate-user-stories' tool.
+ * @param params The validated tool parameters.
+ * @param config OpenRouter configuration.
+ * @returns A Promise resolving to a CallToolResult object.
  */
-export async function generateUserStories(
-  productDescription: string,
+export const generateUserStories: ToolExecutor = async (
+  params: Record<string, any>, // Match ToolExecutor signature
   config: OpenRouterConfig
-): Promise<{ content: { type: "text"; text: string }[] }> {
+): Promise<CallToolResult> => { // Return CallToolResult
+  const productDescription = params.productDescription as string; // Assert type after validation
   try {
     await initDirectories();
-    
+
     // Generate a filename for storing the user stories
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const sanitizedName = productDescription.substring(0, 30).toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -149,24 +162,32 @@ export async function generateUserStories(
     
     // Save the result
     await fs.writeFile(filePath, formattedResult, 'utf8');
-    
+    logger.info(`User stories generated and saved to ${filePath}`);
+
+    // Return success result
     return {
-      content: [
-        {
-          type: "text",
-          text: formattedResult
-        }
-      ]
+      content: [{ type: "text", text: formattedResult }],
+      isError: false
     };
   } catch (error) {
-    logger.error({ err: error }, 'User Stories Generator Error');
+    logger.error({ err: error, params }, 'User Stories Generator Error');
+    // Return error result
     return {
-      content: [
-        {
-          type: "text",
-          text: `Error generating user stories: ${error instanceof Error ? error.message : String(error)}`
-        }
-      ]
+      content: [{ type: "text", text: `Error generating user stories: ${error instanceof Error ? error.message : String(error)}` }],
+      isError: true
     };
   }
-}
+};
+
+// --- Tool Registration ---
+
+// Tool definition for the user stories generator tool
+const userStoriesToolDefinition: ToolDefinition = {
+  name: "generate-user-stories",
+  description: "Creates detailed user stories with acceptance criteria based on a product description and research.",
+  inputSchema: userStoriesInputSchemaShape, // Use the raw shape
+  executor: generateUserStories // Reference the adapted function
+};
+
+// Register the tool with the central registry
+registerTool(userStoriesToolDefinition);

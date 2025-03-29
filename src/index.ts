@@ -8,6 +8,7 @@ import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 import logger from "./logger.js";
+import { initializeToolEmbeddings } from './services/routing/embeddingStore.js'; // Added import
 
 // Load environment variables from .env file
 dotenv.config();
@@ -55,17 +56,28 @@ async function main() {
           if (!transport || !sessionId) {
             return res.status(400).json({ error: 'No active SSE connection' });
           }
-          
-          // Handle the message - we need to cast this since the type definition is incomplete
-          const sseTransport = transport as any;
-          if (typeof sseTransport.handlePostMessage === 'function') {
-            await sseTransport.handlePostMessage(req, res);
+
+          // Use a type guard to safely check for and call handlePostMessage
+          if (transport && 'handlePostMessage' in transport && typeof (transport as any).handlePostMessage === 'function') {
+             // We still need 'any' for the call itself if the type system doesn't know the method,
+             // but the 'in' and 'typeof' checks provide runtime safety.
+             await (transport as any).handlePostMessage(req, res);
+             // Assuming handlePostMessage sends the response, so we don't send one here.
           } else {
-            throw new Error('Transport does not support handlePostMessage');
+             logger.error('Active transport does not support handlePostMessage or is not defined.');
+             // Ensure a response is sent if headers aren't already sent
+             if (!res.headersSent) {
+                  res.status(500).json({ error: 'Internal server error: Cannot handle POST message.' });
+             }
+             // Exit the handler after sending error response
+             return;
           }
         } catch (error) {
           logger.error({ err: error }, 'Error handling POST message');
-          res.status(500).json({ error: 'Internal server error' });
+          // Ensure a response is sent in case of other errors within the try block
+          if (!res.headersSent) {
+             res.status(500).json({ error: 'Internal server error while handling POST message.' });
+          }
         }
       });
 
@@ -146,10 +158,20 @@ async function initDirectories() {
   }
 }
 
-// Initialize directories and start the server
-initDirectories().then(() => {
+// New function to handle all async initialization steps
+async function initializeApp() {
+  await initDirectories(); // Keep existing dir init
+  await initializeToolEmbeddings(); // Add embedding init
+  logger.info('Application initialization complete.');
+}
+
+// Initialize app and start the server
+initializeApp().then(() => {
   main().catch(error => {
     logger.fatal({ err: error }, 'Failed to start server');
     process.exit(1);
   });
+}).catch(initError => {
+   logger.fatal({ err: initError }, 'Failed during application initialization');
+   process.exit(1);
 });

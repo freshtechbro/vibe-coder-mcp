@@ -62,11 +62,15 @@ describe('Rules Generator', () => {
   });
 
   it('should perform research (Perplexity) then generation (Gemini) with research context', async () => {
-    // Test input
-    const productDescription = "A test product description";
+    // Test input with params object matching new function signature
+    const params = {
+      productDescription: "A test product description",
+      userStories: mockUserStories,
+      ruleCategories: mockRuleCategories
+    };
     
     // Call the function under test
-    await generateRules(productDescription, mockUserStories, mockRuleCategories, mockConfig);
+    await generateRules(params, mockConfig);
     
     // Verify Perplexity research was called 3 times (for 3 different queries)
     expect(researchHelper.performResearchQuery).toHaveBeenCalledTimes(3);
@@ -83,8 +87,8 @@ describe('Rules Generator', () => {
     
     // Get the generation prompt and verify it contains all inputs and research context
     const generationPrompt = vi.mocked(sequentialThinking.processWithSequentialThinking).mock.calls[0][0];
-    expect(generationPrompt).toContain(productDescription);
-    expect(generationPrompt).toContain(mockUserStories);
+    expect(generationPrompt).toContain(params.productDescription);
+    expect(generationPrompt).toContain(params.userStories);
     expect(generationPrompt).toContain("Pre-Generation Research Context");
     
     // Verify the config was correctly passed to processWithSequentialThinking
@@ -101,8 +105,12 @@ describe('Rules Generator', () => {
   });
 
   it('should handle custom rule categories in the research process', async () => {
-    // Call with specific rule categories
-    await generateRules("Test product", undefined, ["Security", "Performance"], mockConfig);
+    // Call with specific rule categories using params object
+    const params = {
+      productDescription: "Test product",
+      ruleCategories: ["Security", "Performance"]
+    };
+    await generateRules(params, mockConfig);
     
     // Verify the second research query uses the provided categories
     const secondResearchQuery = vi.mocked(researchHelper.performResearchQuery).mock.calls[1][0];
@@ -117,8 +125,12 @@ describe('Rules Generator', () => {
       { status: 'fulfilled', value: mockResearchResults[2] }
     ]);
     
-    const productDescription = "A test product description";
-    await generateRules(productDescription, mockUserStories, mockRuleCategories, mockConfig);
+    const params = {
+      productDescription: "A test product description",
+      userStories: mockUserStories,
+      ruleCategories: mockRuleCategories
+    };
+    await generateRules(params, mockConfig);
     
     // Verify Gemini generation was still called
     expect(sequentialThinking.processWithSequentialThinking).toHaveBeenCalledTimes(1);
@@ -129,5 +141,46 @@ describe('Rules Generator', () => {
     
     // Verify results are still written to file
     expect(fs.writeFile).toHaveBeenCalledTimes(1);
+  });
+
+  // --- Snapshot Test ---
+  it('should generate rules content matching snapshot', async () => {
+    const productDescription = "A sample product for snapshot";
+    const userStories = "US-001: As a user, I want consistent rules"; 
+    const ruleCategories = ["Code Style", "Architecture", "Security"];
+    const consistentMockRules = "# Coding Rules\n\n## Code Style\n\n1. Rule description...\n\n## Architecture\n\n1. Rule description...\n\n## Security\n\n1. Rule description...";
+    
+    // Variable to capture the file path argument directly
+    let capturedFilePath: string = '';
+    
+    // Reset mocks with consistent values for snapshot stability
+    vi.mocked(researchHelper.performResearchQuery).mockResolvedValue("Consistent mock research.");
+    vi.mocked(sequentialThinking.processWithSequentialThinking).mockResolvedValue(consistentMockRules);
+    
+    // Override writeFile to capture the path directly without explicit typing
+    vi.mocked(fs.writeFile).mockImplementation((path, content, encoding) => {
+      capturedFilePath = String(path);
+      return Promise.resolve();
+    });
+    
+    // Call the function under test with params object
+    const params = { 
+      productDescription, 
+      userStories, 
+      ruleCategories 
+    };
+    const result = await generateRules(params, mockConfig);
+    
+    // Snapshot assertion for the content
+    expect(result).toMatchSnapshot('Rules Generator Output');
+    
+    // Verify file write was called
+    expect(fs.writeFile).toHaveBeenCalledTimes(1);
+    
+    // Verify file path was captured and contains expected components
+    expect(capturedFilePath).toBeTruthy();
+    expect(typeof capturedFilePath).toBe('string');
+    expect(capturedFilePath.indexOf('rules-generator')).toBeGreaterThan(-1);
+    expect(capturedFilePath.indexOf('.md')).toBeGreaterThan(-1);
   });
 });

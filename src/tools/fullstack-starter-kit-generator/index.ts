@@ -1,11 +1,15 @@
-import { OpenRouterConfig, ToolResponse } from '../../types/workflow.js';
+import { z } from 'zod'; // Added Zod import
+import { CallToolResult } from '@modelcontextprotocol/sdk/types.js'; // Added MCP type import
+import { OpenRouterConfig } from '../../types/workflow.js';
+// Removed ToolResponse as CallToolResult is used now
 import { processWithSequentialThinking } from '../sequential-thinking.js';
 import { performResearchQuery } from '../../utils/researchHelper.js';
 import logger from '../../logger.js';
 import fs from 'fs-extra';
 import path from 'path';
-import { starterKitDefinitionSchema, StarterKitDefinition } from './schema.js';
+import { starterKitDefinitionSchema, StarterKitDefinition } from './schema.js'; // Keep internal schema
 import { generateSetupScripts, ScriptOutput } from './scripts.js';
+import { registerTool, ToolDefinition, ToolExecutor } from '../../services/routing/toolRegistry.js'; // Added registry imports
 
 /**
  * Input schema for the Fullstack Starter Kit Generator tool
@@ -35,18 +39,33 @@ export async function initDirectories() {
 
 /**
  * Generate a fullstack starter kit with automatic validation
- * 
- * @param input User input for the generator
- * @param config OpenRouter configuration
- * @returns The generated starter kit with files and documentation
  */
-export async function generateFullstackStarterKit(
-  input: FullstackStarterKitInput,
+// Define Input Type based on Schema for registration
+const starterKitInputSchemaShape = {
+  use_case: z.string().min(5, { message: "Use case must be at least 5 characters." }).describe("The specific use case for the starter kit (e.g., 'E-commerce site', 'Blog platform')"),
+  tech_stack_preferences: z.record(z.string().optional()).optional().describe("Optional tech stack preferences (e.g., { frontend: 'Vue', backend: 'Python' })"),
+  request_recommendation: z.boolean().optional().describe("Whether to request recommendations for tech stack components based on research"),
+  include_optional_features: z.array(z.string()).optional().describe("Optional features to include (e.g., ['Docker', 'CI/CD'])")
+};
+// Keep internal type for function clarity if needed, but params will be Record<string, any>
+// type FullstackStarterKitInput = z.infer<typeof z.object(starterKitInputSchemaShape)>;
+
+/**
+ * Generate a fullstack starter kit with automatic validation.
+ * This function now acts as the executor for the 'generate-fullstack-starter-kit' tool.
+ * @param params The validated tool parameters.
+ * @param config OpenRouter configuration.
+ * @returns A Promise resolving to a CallToolResult object.
+ */
+export const generateFullstackStarterKit: ToolExecutor = async (
+  params: Record<string, any>, // Match ToolExecutor signature
   config: OpenRouterConfig
-): Promise<ToolResponse> {
+): Promise<CallToolResult> => { // Return CallToolResult
+  // Assert types after validation by executeTool
+  const input = params as FullstackStarterKitInput;
   const logs: string[] = [];
   const errors: string[] = [];
-  
+
   try {
     // Log the start
     logger.info(`Starting Fullstack Starter Kit Generator for use case: ${input.use_case}`);
@@ -373,7 +392,8 @@ Generated with the Fullstack Starter Kit Generator
           type: "text",
           text: responseText
         }
-      ]
+      ],
+      isError: false // Indicate success
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -388,9 +408,20 @@ Generated with the Fullstack Starter Kit Generator
           text: `Error generating fullstack starter kit: ${errorMessage}\n\nLogs:\n${logs.join('\n')}`
         }
       ],
-      isError: true
+      isError: true // Indicate error
     };
   }
-}
+};
 
-// Function replaced by performResearchQuery from researchHelper.ts
+// --- Tool Registration ---
+
+// Tool definition for the starter kit generator tool
+const starterKitToolDefinition: ToolDefinition = {
+  name: "generate-fullstack-starter-kit",
+  description: "Generates full-stack project starter kits with custom tech stacks, research-informed recommendations, and setup scripts.",
+  inputSchema: starterKitInputSchemaShape, // Use the raw shape
+  executor: generateFullstackStarterKit // Reference the adapted function
+};
+
+// Register the tool with the central registry
+registerTool(starterKitToolDefinition);

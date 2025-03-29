@@ -1,9 +1,13 @@
 import fs from 'fs-extra';
 import path from 'path';
+import { z } from 'zod'; // Added Zod import
+import { CallToolResult } from '@modelcontextprotocol/sdk/types.js'; // Added MCP type import
 import { OpenRouterConfig } from '../../types/workflow.js';
 import { performResearchQuery } from '../../utils/researchHelper.js';
 import { processWithSequentialThinking } from '../sequential-thinking.js';
 import logger from '../../logger.js';
+import { registerTool, ToolDefinition, ToolExecutor } from '../../services/routing/toolRegistry.js';
+import { AppError, ApiError, ToolExecutionError, ParsingError } from '../../utils/errors.js'; // Import custom errors
 
 // Ensure directories exist
 const RESEARCH_DIR = path.join(process.cwd(), 'workflow-agent-files', 'research-manager');
@@ -79,15 +83,22 @@ Process the initial research findings (provided as context) related to the user'
 `;
 
 /**
- * Perform research on a topic using Perplexity Sonar via OpenRouter
+ * Perform research on a topic using Perplexity Sonar via OpenRouter and enhance with sequential thinking.
+ * This function now acts as the executor for the 'research' tool.
+ * @param params The tool parameters, expecting { query: string }.
+ * @param config OpenRouter configuration.
+ * @returns A Promise resolving to a CallToolResult object.
  */
-export async function performResearch(
-  query: string,
+// Change signature to match ToolExecutor, but we know 'params' is validated
+export const performResearch: ToolExecutor = async (
+  params: Record<string, any>, // Match ToolExecutor signature
   config: OpenRouterConfig
-): Promise<{ content: { type: "text"; text: string }[] }> {
+): Promise<CallToolResult> => {
+  // We can safely access 'query' because executeTool validated it
+  const query = params.query as string;
   try {
     await initDirectories();
-    
+
     // Generate a filename for storing research
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const sanitizedQuery = query.substring(0, 30).toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -96,10 +107,10 @@ export async function performResearch(
     
     // Process the research request
     logger.info(`Performing research on: ${query.substring(0, 50)}...`);
-    
+
     // Use Perplexity model for research via centralized helper
     const researchResult = await performResearchQuery(query, config);
-    
+
     // Process with sequential thinking to enhance the research
     const enhancedResearch = await processWithSequentialThinking(
       `Conduct thorough research on the following query:\n\n${query}\n\nIncorporate this information: ${researchResult}`,
@@ -109,27 +120,66 @@ export async function performResearch(
     
     // Format the research with a title header
     const formattedResult = `# Research: ${query}\n\n${enhancedResearch}\n\n_Generated: ${new Date().toLocaleString()}_`;
-    
+
     // Save the result
     await fs.writeFile(filePath, formattedResult, 'utf8');
-    
+    logger.info(`Research result saved to ${filePath}`);
+
+    // Return CallToolResult structure for success
     return {
-      content: [
-        {
-          type: "text",
-          text: formattedResult
-        }
-      ]
+      content: [{ type: "text", text: formattedResult }],
+      isError: false
     };
   } catch (error) {
-    logger.error({ err: error }, 'Research Manager Error');
+    logger.error({ err: error, query }, 'Research Manager Error');
+
+    let errorMessage = `Error performing research for query: "${query}".`;
+    let errorType = 'ToolExecutionError'; // Default if it's not a recognized AppError
+    let errorContext: Record<string, any> | undefined = { query };
+
+    // Check if it's one of our custom errors bubbled up from underlying calls
+    if (error instanceof AppError) {
+       errorMessage = `Research failed: ${error.message}`;
+       errorType = error.name; // e.g., 'ApiError', 'ParsingError'
+       errorContext = { ...errorContext, ...error.context }; // Merge contexts
+    } else if (error instanceof Error) {
+       // Generic error from researchQuery or sequentialThinking
+       errorMessage = `Unexpected error during research: ${error.message}`;
+       errorType = error.name; // e.g., 'Error'
+    } else {
+       // Non-Error type thrown
+       errorMessage = `Unknown error during research.`;
+       errorType = 'UnknownError';
+       errorContext.originalValue = String(error);
+    }
+
+    // Return structured error in CallToolResult
     return {
-      content: [
-        {
-          type: "text",
-          text: `Error performing research: ${error instanceof Error ? error.message : String(error)}`
-        }
-      ]
+      content: [{ type: "text", text: errorMessage }],
+      isError: true,
+      errorDetails: {
+          type: errorType,
+          message: (error instanceof Error) ? error.message : String(error),
+          context: errorContext,
+      }
     };
   }
-}
+};
+
+// --- Tool Registration ---
+
+// Define the raw shape for the Zod schema
+const researchInputSchemaShape = {
+  query: z.string().min(3, { message: "Query must be at least 3 characters long." }).describe("The research query or topic to investigate")
+};
+
+// Tool definition for the research tool, using the raw shape
+const researchToolDefinition: ToolDefinition = {
+  name: "research", // Keep the original tool name
+  description: "Performs deep research on a given topic using Perplexity Sonar and enhances the result.",
+  inputSchema: researchInputSchemaShape, // Use the raw shape here
+  executor: performResearch // Reference the adapted function
+};
+
+// Register the tool with the central registry
+registerTool(researchToolDefinition);
